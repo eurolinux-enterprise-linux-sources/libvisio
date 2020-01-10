@@ -2,7 +2,7 @@
 
 Name: libvisio
 Version: 0.0.31
-Release: 1%{?dist}
+Release: 3%{?dist}
 Summary: A library providing ability to interpret and import visio diagrams
 
 Group: System Environment/Libraries
@@ -105,6 +105,12 @@ rm -rf %{buildroot}/%{_docdir}/%{name}
 
 
 %changelog
+* Fri Jan 24 2014 Daniel Mach <dmach@redhat.com> - 0.0.31-3
+- Mass rebuild 2014-01-24
+
+* Fri Dec 27 2013 Daniel Mach <dmach@redhat.com> - 0.0.31-2
+- Mass rebuild 2013-12-27
+
 * Mon Sep 02 2013 David Tardon <dtardon@redhat.com> - 0.0.31-1
 - new release
 
