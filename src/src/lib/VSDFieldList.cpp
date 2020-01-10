@@ -1,31 +1,10 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* libvisio
- * Version: MPL 1.1 / GPLv2+ / LGPLv2+
+/*
+ * This file is part of the libvisio project.
  *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License or as specified alternatively below. You may obtain a copy of
- * the License at http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * Major Contributor(s):
- * Copyright (C) 2011 Fridrich Strba <fridrich.strba@bluewin.ch>
- * Copyright (C) 2011 Eilidh McAdam <tibbylickle@gmail.com>
- *
- *
- * All Rights Reserved.
- *
- * For minor contributions see the git repository.
- *
- * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPLv2+"), or
- * the GNU Lesser General Public License Version 2 or later (the "LGPLv2+"),
- * in which case the provisions of the GPLv2+ or the LGPLv2+ are applicable
- * instead of those above.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 #include <time.h>
@@ -42,13 +21,13 @@ libvisio::VSDFieldListElement *libvisio::VSDTextField::clone()
   return new VSDTextField(m_id, m_level, m_nameId, m_formatStringId);
 }
 
-WPXString libvisio::VSDTextField::getString(const std::map<unsigned, WPXString> &strVec)
+librevenge::RVNGString libvisio::VSDTextField::getString(const std::map<unsigned, librevenge::RVNGString> &strVec)
 {
-  std::map<unsigned, WPXString>::const_iterator iter = strVec.find(m_nameId);
+  std::map<unsigned, librevenge::RVNGString>::const_iterator iter = strVec.find(m_nameId);
   if (iter != strVec.end())
     return iter->second;
   else
-    return WPXString();
+    return librevenge::RVNGString();
 }
 
 void libvisio::VSDTextField::setNameId(int nameId)
@@ -69,9 +48,9 @@ libvisio::VSDFieldListElement *libvisio::VSDNumericField::clone()
 
 #define MAX_BUFFER 1024
 
-WPXString libvisio::VSDNumericField::datetimeToString(const char *format, double datetime)
+librevenge::RVNGString libvisio::VSDNumericField::datetimeToString(const char *format, double datetime)
 {
-  WPXString result;
+  librevenge::RVNGString result;
   char buffer[MAX_BUFFER];
   time_t timer = (time_t)(86400 * datetime - 2209161600.0);
   const struct tm *const time = gmtime(&timer);
@@ -83,10 +62,10 @@ WPXString libvisio::VSDNumericField::datetimeToString(const char *format, double
   return result;
 }
 
-WPXString libvisio::VSDNumericField::getString(const std::map<unsigned, WPXString> &)
+librevenge::RVNGString libvisio::VSDNumericField::getString(const std::map<unsigned, librevenge::RVNGString> &)
 {
   if (m_format == 0xffff)
-    return WPXString();
+    return librevenge::RVNGString();
   switch (m_format)
   {
   case VSD_FIELD_FORMAT_DateMDYY:
@@ -161,8 +140,8 @@ WPXString libvisio::VSDNumericField::getString(const std::map<unsigned, WPXStrin
     return datetimeToString("%x %X", m_number);
   default:
   {
-    WPXString result;
-    WPXProperty *pProp = WPXPropertyFactory::newDoubleProp(m_number);
+    librevenge::RVNGString result;
+    librevenge::RVNGProperty *pProp = librevenge::RVNGPropertyFactory::newDoubleProp(m_number);
     if (pProp)
     {
       result = pProp->getStr();

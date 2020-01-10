@@ -1,42 +1,24 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* libvisio
- * Version: MPL 1.1 / GPLv2+ / LGPLv2+
+/*
+ * This file is part of the libvisio project.
  *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License or as specified alternatively below. You may obtain a copy of
- * the License at http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * Major Contributor(s):
- * Copyright (C) 2012 Fridrich Strba <fridrich.strba@bluewin.ch>
- *
- *
- * All Rights Reserved.
- *
- * For minor contributions see the git repository.
- *
- * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPLv2+"), or
- * the GNU Lesser General Public License Version 2 or later (the "LGPLv2+"),
- * in which case the provisions of the GPLv2+ or the LGPLv2+ are applicable
- * instead of those above.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include <string.h>
-#include <errno.h>
-#include <limits.h>
+#ifndef BOOST_LEXICAL_CAST_ASSUME_C_LOCALE
+#define BOOST_LEXICAL_CAST_ASSUME_C_LOCALE 1
+#endif
+
 #include <sstream>
 #include <istream>
 #include <vector>
 #include <boost/algorithm/string.hpp>
+#include <boost/lexical_cast.hpp>
 #include <libxml/xmlIO.h>
 #include <libxml/xmlstring.h>
-#include <libwpd-stream/libwpd-stream.h>
+#include <librevenge-stream/librevenge-stream.h>
 #include "VSDXMLHelper.h"
 #include "libvisio_utils.h"
 
@@ -53,12 +35,12 @@ extern "C" {
 
   static int vsdxInputReadFunc(void *context, char *buffer, int len)
   {
-    WPXInputStream *input = (WPXInputStream *)context;
+    librevenge::RVNGInputStream *input = (librevenge::RVNGInputStream *)context;
 
     if ((!input) || (!buffer) || (len < 0))
       return -1;
 
-    if (input->atEOS())
+    if (input->isEnd())
       return 0;
 
     unsigned long tmpNumBytesRead = 0;
@@ -100,7 +82,7 @@ extern "C" {
 
 // xmlTextReader helper function
 
-xmlTextReaderPtr libvisio::xmlReaderForStream(WPXInputStream *input, const char *URL, const char *encoding, int options)
+xmlTextReaderPtr libvisio::xmlReaderForStream(librevenge::RVNGInputStream *input, const char *URL, const char *encoding, int options)
 {
   xmlTextReaderPtr reader = xmlReaderForIO(vsdxInputReadFunc, vsdxInputCloseFunc, (void *)input, URL, encoding, options);
   xmlTextReaderSetErrorHandler(reader, vsdxReaderErrorFunc, 0);
@@ -140,65 +122,34 @@ libvisio::Colour libvisio::xmlStringToColour(const xmlChar *s)
 
 long libvisio::xmlStringToLong(const xmlChar *s)
 {
+  using boost::lexical_cast;
+  using boost::bad_lexical_cast;
   if (xmlStrEqual(s, BAD_CAST("Themed")))
     return 0;
 
-  char *end;
-  errno = 0;
-  long value = strtol((const char *)s, &end, 0);
-
-  if ((ERANGE == errno && (LONG_MAX == value || LONG_MIN == value)) || (errno && !value))
+  try
+  {
+    return boost::lexical_cast<long, const char *>((const char *)s);
+  }
+  catch (const boost::bad_lexical_cast &)
   {
     VSD_DEBUG_MSG(("Throwing XmlParserException\n"));
     throw XmlParserException();
   }
-  else if (*end)
-  {
-    VSD_DEBUG_MSG(("Throwing XmlParserException\n"));
-    throw XmlParserException();
-  }
-
-  return value;
+  return 0;
 }
 
-double libvisio::xmlStringToDouble(const xmlChar *s)
+double libvisio::xmlStringToDouble(const xmlChar *s) try
 {
   if (xmlStrEqual(s, BAD_CAST("Themed")))
-    return 0;
+    return 0.0;
 
-  char *end;
-  std::string doubleStr((const char *)s);
-
-#ifndef __ANDROID__
-  std::string decimalPoint(localeconv()->decimal_point);
-#else
-  std::string decimalPoint(".");
-#endif
-  if (!decimalPoint.empty() && decimalPoint != ".")
-  {
-    if (!doubleStr.empty())
-    {
-      std::string::size_type pos;
-      while ((pos = doubleStr.find(".")) != std::string::npos)
-        doubleStr.replace(pos,1,decimalPoint);
-    }
-  }
-
-  errno = 0;
-  double value = strtod(doubleStr.c_str(), &end);
-
-  if ((ERANGE == errno) || (errno && !value))
-  {
-    VSD_DEBUG_MSG(("Throwing XmlParserException\n"));
-    throw XmlParserException();
-  }
-  else if (*end)
-  {
-    VSD_DEBUG_MSG(("Throwing XmlParserException\n"));
-    throw XmlParserException();
-  }
-
-  return value;
+  return boost::lexical_cast<double, const char *>((const char *)s);
+}
+catch (const boost::bad_lexical_cast &)
+{
+  VSD_DEBUG_MSG(("Throwing XmlParserException\n"));
+  throw XmlParserException();
 }
 
 bool libvisio::xmlStringToBool(const xmlChar *s)
@@ -274,7 +225,7 @@ void libvisio::VSDXRelationship::rebaseTarget(const char *baseDir)
   }
 
   target.clear();
-  for(unsigned j = 0; j < normalizedSegments.size(); ++j)
+  for (unsigned j = 0; j < normalizedSegments.size(); ++j)
   {
     if (!target.empty())
       target.append("/");
@@ -288,7 +239,7 @@ void libvisio::VSDXRelationship::rebaseTarget(const char *baseDir)
 
 // VSDXRelationships
 
-libvisio::VSDXRelationships::VSDXRelationships(WPXInputStream *input)
+libvisio::VSDXRelationships::VSDXRelationships(librevenge::RVNGInputStream *input)
   : m_relsByType(), m_relsById()
 {
   if (input)

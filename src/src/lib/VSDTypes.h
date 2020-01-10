@@ -1,38 +1,17 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* libvisio
- * Version: MPL 1.1 / GPLv2+ / LGPLv2+
+/*
+ * This file is part of the libvisio project.
  *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License or as specified alternatively below. You may obtain a copy of
- * the License at http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * Major Contributor(s):
- * Copyright (C) 2011 Fridrich Strba <fridrich.strba@bluewin.ch>
- * Copyright (C) 2011 Eilidh McAdam <tibbylickle@gmail.com>
- *
- *
- * All Rights Reserved.
- *
- * For minor contributions see the git repository.
- *
- * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPLv2+"), or
- * the GNU Lesser General Public License Version 2 or later (the "LGPLv2+"),
- * in which case the provisions of the GPLv2+ or the LGPLv2+ are applicable
- * instead of those above.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 #ifndef VSDTYPES_H
 #define VSDTYPES_H
 
 #include <vector>
-#include <libwpd/libwpd.h>
+#include <librevenge/librevenge.h>
 
 #define FROM_OPTIONAL(t, u) !!t ? t.get() : u
 #define ASSIGN_OPTIONAL(t, u) if(!!t) u = t.get()
@@ -60,6 +39,21 @@ struct XForm
     width(xform.width), pinLocX(xform.pinLocX), pinLocY(xform.pinLocY), angle(xform.angle),
     flipX(xform.flipX), flipY(xform.flipY), x(xform.x), y(xform.y) {}
 
+};
+
+struct XForm1D
+{
+  double beginX;
+  double beginY;
+  unsigned beginId;
+  double endX;
+  double endY;
+  unsigned endId;
+  XForm1D() : beginX(0.0), beginY(0.0), beginId(MINUS_ONE),
+    endX(0.0), endY(0.0), endId(MINUS_ONE) {}
+  XForm1D(const XForm1D &xform1d) : beginX(xform1d.beginX),
+    beginY(xform1d.beginY), beginId(xform1d.beginId),
+    endX(xform1d.endX), endY(xform1d.endY), endId(xform1d.endId) {}
 };
 
 // Utilities
@@ -147,7 +141,7 @@ struct ForeignData
   double offsetY;
   double width;
   double height;
-  WPXBinaryData data;
+  librevenge::RVNGBinaryData data;
   ForeignData()
     : typeId(0),
       dataId(0),
@@ -184,7 +178,7 @@ enum TextFormat
 class VSDName
 {
 public:
-  VSDName(const WPXBinaryData &data, TextFormat format)
+  VSDName(const librevenge::RVNGBinaryData &data, TextFormat format)
     : m_data(data),
       m_format(format) {}
   VSDName() : m_data(), m_format(VSD_TEXT_ANSI) {}
@@ -193,16 +187,16 @@ public:
   {
     return !m_data.size();
   }
-  WPXBinaryData m_data;
+  librevenge::RVNGBinaryData m_data;
   TextFormat m_format;
 };
 
 struct VSDFont
 {
-  WPXString m_name;
+  librevenge::RVNGString m_name;
   TextFormat m_encoding;
   VSDFont() : m_name("Arial"), m_encoding(libvisio::VSD_TEXT_ANSI) {}
-  VSDFont(const WPXString &name, const TextFormat &encoding) :
+  VSDFont(const librevenge::RVNGString &name, const TextFormat &encoding) :
     m_name(name), m_encoding(encoding) {}
   VSDFont(const VSDFont &font) :
     m_name(font.m_name), m_encoding(font.m_encoding) {}

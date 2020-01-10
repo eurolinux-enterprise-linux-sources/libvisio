@@ -1,3 +1,633 @@
+2015-01-02  David Tardon  <dtardon@redhat.com>  [0478fce6799d9a8e2d765cc4616a5f2de1c3c44e]
+
+	comment out 2 unused functions in test
+
+	Change-Id: I7012a55176693b9abb8e9f5c9543d14221bea5e1
+
+2015-01-02  David Tardon  <dtardon@redhat.com>  [0a11bbae2d3fbc834a08393ace6671bdf2909696]
+
+	disable werror by default
+
+	Change-Id: I389f93a756f3661b328847cde267f79cffefef62
+
+2015-01-02  David Tardon  <dtardon@redhat.com>  [02eea2cf353bb405c5073d9169868a93b29f197c]
+
+	prepare for a release
+
+	Change-Id: I1022e4003f468d7c66eec459b41016ec1ab53556
+
+2015-01-01  David Tardon  <dtardon@redhat.com>  [bec680b235f06b439340fbc25b20b2f5a131300f]
+
+	Revert "VSDX: import <cp:category>"
+
+	We do not want "multi-level" property names.
+
+	This reverts commit 5753f7e98d02bde80d9e712d298372933c4a28e6.
+
+2014-12-31  Miklos Vajna  <vmiklos@collabora.co.uk>  [5753f7e98d02bde80d9e712d298372933c4a28e6]
+
+	VSDX: import <cp:category>
+
+	Change-Id: If1f520da6d9180862409af63296a1f90bad971e1
+
+2014-12-31  Miklos Vajna  <vmiklos@collabora.co.uk>  [d6f6a4f6d7444177eaebc00198ed166f30540cbb]
+
+	libvisio::XmlDrawingGenerator: handle user-defined metadata
+
+	Change-Id: I63c4cf75009ae8303efd031c66570514180f2d9d
+
+2014-12-31  Miklos Vajna  <vmiklos@collabora.co.uk>  [ce94c3eda0f65e965001fdb946b3db829fea2fbd]
+
+	VSDXMetaData: missing breaks
+
+	Change-Id: I6f1c1827761a532941fc699e912054966561978a
+
+2014-12-30  Miklos Vajna  <vmiklos@collabora.co.uk>  [86ad7206b1d617817ac8699db740b613f3ed19a2]
+
+	VSD: Visio doesn't write separate author and last modifier fields
+
+	So author always equals to the last modifier. This is consistent with
+	how the single timestamp is imported both as a creation and modification
+	time, too.
+
+	Change-Id: I65233316f412166dfd82c720c830cf625e1275b5
+
+2014-12-30  Miklos Vajna  <vmiklos@collabora.co.uk>  [9cbe861b8f5e53a0aa83b863b1bf42224139dcfc]
+
+	VSDX: import lastModifiedBy
+
+	Change-Id: I5136c53cbca0b3dc1300e49bf82f290d8ff86ed8
+
+2014-12-28  Miklos Vajna  <vmiklos@collabora.co.uk>  [d4684217ee9dd48e3352430e6d869824642f4082]
+
+	VSD: import description
+
+	Change-Id: I33b47f4ee903f9f4d07383df0552284de7401d7b
+
+2014-12-28  Miklos Vajna  <vmiklos@collabora.co.uk>  [db443edcc59a9d48395e25f04a4c380d15877e4e]
+
+	VSDX: import description
+
+	Change-Id: I5e9e6fd793bb44c954e8255e70952badfb442d57
+
+2014-12-28  Miklos Vajna  <vmiklos@collabora.co.uk>  [443227148dcbf4314369e1941e910f3b64290315]
+
+	VSDXMetaData: check token type at a single place
+
+	Change-Id: I0318d619a71b0785e2752a363a68f4db0b3acc0e
+
+2014-12-28  Miklos Vajna  <vmiklos@collabora.co.uk>  [70e2cbc27a37d84c10e60438ed143a0cd391c796]
+
+	VSD: import keywords
+
+	Change-Id: I1896afdcbec2cb3177f053558b2a6668529bd85e
+
+2014-12-27  Miklos Vajna  <vmiklos@collabora.co.uk>  [d3a5596c77afad6df538ad615111e0ee984b62e7]
+
+	VSDX: import <cp:keywords>
+
+	Change-Id: I7c61cde25389b5bee26885822d8995dfca7d031b
+
+2014-12-26  Miklos Vajna  <vmiklos@collabora.co.uk>  [20434231174c9638c0c997199447ee638613a0a3]
+
+	VSD: import author
+
+	Change-Id: I3c73b61217ad8779ad9786acbe58ffada647ffbd
+
+2014-12-25  Miklos Vajna  <vmiklos@collabora.co.uk>  [a3d033a7561cfca087d86632e2e3f0b215a1222e]
+
+	VSDXMetaData: merge read*() methods into a single one
+
+	Change-Id: I218bca925d5fc86d7b492e05b2bebbca2e5675d9
+
+2014-12-24  Miklos Vajna  <vmiklos@collabora.co.uk>  [a110b6351ae38eccd0bd089918941fbfea677397]
+
+	VSDX: import <dc:creator>
+
+	Sigh, ODF has <dc:creator> as well, but with different semantics.
+
+	Change-Id: I9425dc1b45c3c3cd9a1a97fb31f0ee087044814e
+
+2014-12-23  Miklos Vajna  <vmiklos@collabora.co.uk>  [29dfeb9aee67f287a2c58c52084dca755e401df2]
+
+	VSD: import subject
+
+	Change-Id: I6b28cf0570ead1c7acf8b6b8354f23945ca0fdd0
+
+2014-12-22  Miklos Vajna  <vmiklos@collabora.co.uk>  [e6a780adb90eb5122f03d4baeae3990972304bf5]
+
+	VSDX: import <dc:subject>
+
+	Change-Id: I8685be2883d3fa9719aafd0f1c1e928f863fb2ce
+
+2014-12-21  Miklos Vajna  <vmiklos@collabora.co.uk>  [526368176b655a6f30d9f26b9cf3285367672b00]
+
+	VSDXParser::processXmlNode: print debug messages to stderr
+
+	Change-Id: I4d5b8414f9836dc75ef988985c64d929dbc6b336
+
+2014-12-20  David Tardon  <dtardon@redhat.com>  [1ec587cab878f55b4552181f6a291e1b7c8d64e9]
+
+	use the right form of c header
+
+	Change-Id: I6cc11f41c84e47c1a49f5e553f1d067abd7ce79a
+
+2014-12-20  Miklos Vajna  <vmiklos@collabora.co.uk>  [9f3264e596c9ffb9d690e69cfe8c86bc103885b1]
+
+	VSD: test Creation/ModifiedTime import
+
+	Change-Id: I5e0726cf8fecd7ec88beb4f338b3fad5c656fb5c
+
+2014-12-17  Miklos Vajna  <vmiklos@collabora.co.uk>  [fa2420cddb9945caa7696cb394cec624f35c3782]
+
+	ImportTest: fix indentation
+
+	Change-Id: Ibc19c371d0aa8167193fcb3c3958caf2251abab9
+
+2014-12-17  Miklos Vajna  <vmiklos@collabora.co.uk>  [c1ed56802e640b52674c62426b1e7507d09ddbf1]
+
+	VSD: test metadata import
+
+	Only title as a start.
+
+	Change-Id: Ic7a4cc8ddd1f781466d7a113bf3a925ae112e874
+
+2014-12-12  Miklos Vajna  <vmiklos@collabora.co.uk>  [c31e6cf3618f40ab4d1ec655e4e6f7c7590834ab]
+
+	VSDX: test import of <dcterms:created> and <dcterms:modified>
+
+	Change-Id: I78e6cc1811a2f0815f27d8780cf5f96208115b24
+
+2014-12-10  Miklos Vajna  <vmiklos@collabora.co.uk>  [abdc998562acac7174ac8f83935404456109a141]
+
+	fdo#86664 VSDX: test metadata import
+
+	Only title as a start.
+
+	Change-Id: I6d5f6e2dc1730ff2b2dfda760d575f605ab034eb
+
+2014-12-08  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [109540e113867fd140838e5be79ca0e41c13d85c]
+
+	Some Werror stuff fixing
+
+	Change-Id: I6fbcf7168480590c1922e6f4ccd180e1605086dd
+
+2014-12-07  Miklos Vajna  <vmiklos@collabora.co.uk>  [3507f0bc15a8f1c3d1c2b8d5d11962d8de5d9467]
+
+	print debug messages to stderr
+
+	Change-Id: I54305fcb8c2ea80951acdb5b426a0dd501330762
+
+2014-12-05  David Tardon  <dtardon@redhat.com>  [25a2ba5fc9551f736192c3cca092aad69a98db09]
+
+	Revert "avoid infinite recursion when reading a broken file"
+
+	Streams can legitimately be read more than once. (In ideal world, we
+	would keep the parsed data and just reuse it if/when the same stream
+	pointer was encountered again, instead of parsing it repeatedly. There
+	is a room for future improvement there :-)
+
+	This reverts commit 770e649b1b30e2b43e62d00ed06b4ff33f8305e0.
+
+2014-12-03  David Tardon  <dtardon@redhat.com>  [9990891b8af5b8e91cea086f6122095868ea49a3]
+
+	add tags to .gitignore
+
+	Change-Id: Ia4601bd76a23f10a9d231b1b1a043331c7f9c47c
+
+2014-12-03  David Tardon  <dtardon@redhat.com>  [33799daf513f761114756e8550d7b19abb95cfa7]
+
+	remove tags on distclean
+
+	Change-Id: Ie564dbd2be7d6dd744897ef7835f44103b9e6dbb
+
+2014-12-03  Miklos Vajna  <vmiklos@collabora.co.uk>  [186a8b8ebce53dcdc1a192f55ca12d8b50d8c725]
+
+	Add a 'tags' target to please ctags users
+
+	Change-Id: I190cc2b7bff165fbf0f9bbd21bb59c85bd7c245a
+
+2014-12-02  Miklos Vajna  <vmiklos@collabora.co.uk>  [89ccb97fedc69e4508581ddcd93c9ea6740855c1]
+
+	error C3861: ´localtime´: identifier not found
+
+	Change-Id: Ic0ccfc0b6cdd030772d09e7d235c63d440ba2f1b
+
+2014-12-02  Miklos Vajna  <vmiklos@collabora.co.uk>  [02c96626a14e7435e38a142397640926978deb5e]
+
+	fdo#86664 VSD: import Creation/ModifiedTime
+
+	Change-Id: Ia1287ef49fa5225ab9bb5effa65d8b61e4015f8d
+
+2014-12-01  Miklos Vajna  <vmiklos@collabora.co.uk>  [ccfd70d06cdd47965bccf24b6dfa6ca3d472517e]
+
+	fdo#86729 VSD: import metadata
+
+	Only title as a start.
+
+	Change-Id: If876d0985bb68d87600d805368aff404dfd6fba4
+
+2014-12-01  Miklos Vajna  <vmiklos@collabora.co.uk>  [07566047a76defe96447c7fd0757c6dda0ba5b2a]
+
+	Move _appendUCS4() to libvisio_utils
+
+	Change-Id: Ie924018aa6fa0bc758ee034f8522f32a87fff391
+
+2014-11-27  David Tardon  <dtardon@redhat.com>  [770e649b1b30e2b43e62d00ed06b4ff33f8305e0]
+
+	avoid infinite recursion when reading a broken file
+
+	Change-Id: Icb292ae4b4c286be52ee81e5d08b43efccb1892d
+
+2014-11-27  David Tardon  <dtardon@redhat.com>  [f5cc89fd3303fa60764e13addb3bee84adf7bbb5]
+
+	move the check a bit up, in preparation for next commit
+
+	Change-Id: I9d7f98fecf96f162e2def0cd1af6931886fcb740
+
+2014-11-25  Miklos Vajna  <vmiklos@collabora.co.uk>  [04735e030c94941e956423e73214ac04243bcefa]
+
+	fdo#86664 VSDX: import <dcterms:created> and <dcterms:modified>
+
+	Change-Id: I7ff5f87729419853146d941903f88f9277106b27
+
+2014-11-25  Miklos Vajna  <vmiklos@collabora.co.uk>  [2060d364bc0f7df97b864bf01fc5a27da12061c3]
+
+	fdo#86664 VSDX: import metadata
+
+	Only title as a start.
+
+	Change-Id: Id1b92992c75058f99b9c0c72d53c254110917ed7
+	Reviewed-on: https://gerrit.libreoffice.org/13108
+	Reviewed-by: Fridrich Strba <fridrich@documentfoundation.org>
+	Tested-by: Fridrich Strba <fridrich@documentfoundation.org>
+
+2014-11-24  David Tardon  <dtardon@redhat.com>  [6033e13300a7beff58a953241c0da6d760082827]
+
+	add compile script to .gitignore
+
+	Change-Id: Ic14123f7f5e9048074f51d84c073ad79c4ac816f
+
+2014-11-24  David Tardon  <dtardon@redhat.com>  [5bd7231abf5e138d6b31faeb4cf2466e6a53f716]
+
+	only export public symbols
+
+
+2014-11-20  David Tardon  <dtardon@redhat.com>  [a0f87f055629f21d43d6c58eabf3c978547e6f08]
+
+	fix page referencing itself as its background page
+
+	Change-Id: I70d91a8f2f72cba6cd6ce4a3427af98edb6d0a4a
+
+2014-11-18  Hidemune  <info@tanaka-cs.co.jp>  [3684ef0bc0eeb05477a30f4d3bfba01d957b0292]
+
+	display too small arrow to the appropriate size
+
+	: Visio implementation-dependent problem
+
+	Change-Id: I15131cafd82429b18874fa69a149deb8bee00e0c
+	Reviewed-on: https://gerrit.libreoffice.org/12523
+	Reviewed-by: Fridrich Strba <fridrich@documentfoundation.org>
+	Tested-by: Fridrich Strba <fridrich@documentfoundation.org>
+
+2014-10-22  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [7380feb359560e71a41dcc30c23ac3a506e5bc30]
+
+	Read XForm1D
+
+	Change-Id: I1486f876df5dbfa3914440f612af48833317da09
+
+2014-07-29  David Tardon  <dtardon@redhat.com>  [ecd8101f3dd47a01c57e6e1e2c8f72aa31993358]
+
+	check arguments
+
+	Change-Id: I23cf6e3c04100ec021f913171bb469a221515584
+
+2014-06-16  Michael Stahl  <mstahl@redhat.com>  [1700911d88f56c077ca1b49d7c07489a059ed0da]
+
+	libvisio: avoid some quoting issue with Win32 make
+
+
+2014-06-04  David Tardon  <dtardon@redhat.com>  [e8f0de8e6e69551fa54cf43ee0ab93ed22d9d5d5]
+
+	coverity#1165322 unreachable return statement
+
+	Change-Id: I8a4f55921ed71c55fb615b5c27daf80008608e09
+
+2014-05-31  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [aa8cabb706f64f4bf9553c230ad42c23edc35642]
+
+	Remove warnings
+
+	Change-Id: If007520c22d400b717fe0abac30b8288208e3e94
+
+2014-05-27  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [e6c0de7c26fb295bb13beea08d5a95eacd812f1d]
+
+	The library strictly speaking does not need the stream implementations
+
+	Change-Id: I8139e35f1cc9bcc036fe28ba3e61447906587919
+
+2014-05-23  David Tardon  <dtardon@redhat.com>  [e199cfa9896fb784b56397b04f6fc1b0acd54c06]
+
+	prepare for a release
+
+	Change-Id: I5c68e39f71c981a0859bd602d89af3c9bd226cdb
+
+2014-04-16  David Tardon  <dtardon@redhat.com>  [712ed7e69d7a0ef0ae4ff0bfd2b5b2c68b1193b6]
+
+	add requires for other used projects
+
+	Change-Id: I438a66de23324c25a1c49b1ad31bc2020e545816
+
+2014-04-16  David Tardon  <dtardon@redhat.com>  [13d0c3a3957ef167a63b4f529ca86455f64d725a]
+
+	require librevenge-stream too
+
+	Change-Id: I1f6c56b691df88830d3e779e2de4dd5ae5028022
+
+2014-02-04  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [3e4d354f8fa163548d710fb87b5d8e18b531229c]
+
+	Some other ideas about handling the theming
+
+	Change-Id: Iec8c5f49827ee2b18ddf97d37077b2f0798a0685
+
+2014-02-03  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [17843d542375641f707d9737fa77fff5180ec031]
+
+	Parse the quick-style pointers
+
+	Change-Id: I2d6b5a72c6c2764793992d1ca6363c831fa425b0
+
+2014-02-03  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [f20f0bed4e545355f37f008cf311833c7907506a]
+
+	Little changes to theme parsing
+
+	Change-Id: Ie5e7b86799fda82611edf299952a8508efd7dc5f
+
+2014-01-31  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [aa2b2db7dc468117d5f2a24bcef8b538f61b10b3]
+
+	With agreement of all contributors, simplifying licensing to MPL2
+
+	Change-Id: I9cad20e93dad4ae59000b823e5919b777dfcb221
+
+2013-12-21  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [e50cc762fc677e27ec4ca6991b9f1a274262c168]
+
+	Implement the RVNGInputStream::existsSubStream
+
+	Change-Id: I1219e0bbbc0e244f2dba0cd2ebce46bf2ebb5bea
+
+2013-12-18  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [953c53d206307e5129b3282e093c57d70d491796]
+
+	Export only needed stuff on Windows
+
+	Change-Id: Iac43500280f5639caf13e4f4171a83e1eade6ece
+
+2013-12-16  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [105a2594b2f882b6a60e16311c9b172452fd70d4]
+
+	Force C locale for the lexical cast conversions
+
+	Change-Id: Ice5a8e733129970d64fd209d01907b747fc3b62d
+
+2013-12-16  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [c43a413414a8bd3cf4d61b5716606bfe8b4d060e]
+
+	Words cannot tell the love we have towards boost
+
+	Change-Id: I0ab0b4858348a6b75de319672df808b6c73af87d
+
+2013-12-11  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [1afbb575ae6d80b51b75a9c8f6fafa8f0f07f8d5]
+
+	Re-astyle
+
+	Change-Id: Iacfed5764164c80130685cac757f1b9ca0acfdaf
+
+2013-12-11  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [f48d89167a57971fed2bbf55fecf06626ce8772d]
+
+	Allow equal identing of functions
+
+
+2013-12-03  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [79f15858b2ccfcf87aa5dcd52a18a5bdf0a9bbd4]
+
+	Insert only single empty text
+
+	Change-Id: Ic2ef7a1f9694de48a2295cec7269410020f8cb06
+
+2013-12-03  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [aa4d0f097bd31a24642dbe0ae4681d79940ffc0d]
+
+	Emit all lineBreaks, since several runs can be following
+
+	Change-Id: Ief01851bd6545b7fa38152cd332eb4a2a8409b3f
+
+2013-12-03  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [979cdc21f3dd6313906a5508b7877a513e4b1eea]
+
+	Split tabs, spaces and lineBreaks from the text to insert
+
+	Change-Id: Ie454326a42e403bef88606b729827966df07edc6
+
+2013-12-03  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [6a4e4bae12214d9a913b7b7fe134919a6b7882bf]
+
+	Add startDocument and endDocument calls
+
+	Change-Id: I964e74614e18775e6383e385024331e03e8cf442
+
+2013-12-03  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [fd77d1c48c490cb697ccf62d47cbdb28998ce99f]
+
+	No need of this anymore
+
+	Change-Id: Ia04b59bd92854123800ba2bf2576919c6d90c907
+
+2013-11-28  David Tardon  <dtardon@redhat.com>  [dbbacaa9c7b7efb00ea9573e12dd189da3075fe6]
+
+	add options file for astyle
+
+	Change-Id: Ifa12207d6d3bde25af615b293ca1f18c839a3a2f
+
+2013-11-28  David Tardon  <dtardon@redhat.com>  [4d41c1a6c0ff7a029907fea06d82d463a6a64ed2]
+
+	add myself to AUTHORS
+
+	Change-Id: I60642ffb1e49a8cf6103ddf868c44ed5cff01f13
+
+2013-11-28  David Tardon  <dtardon@redhat.com>  [89f8718adffe253e2a47f699f12b968e1f8ffcdc]
+
+	document the current astyle settings
+
+	Change-Id: I3eb6feafe33d51234dee2c1977c86e6de0a4bbfa
+
+2013-11-25  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [a2638ebb7168596ec0dd352669b094c503c43f5f]
+
+	astyle -HU -A1 -k3 -y -n -s2 -r \*.cpp \*.h
+
+	Change-Id: I44eae8df69b2153f777c08332380ee9d5b386b50
+
+2013-11-23  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [d78e0a2a8e3793caf7888c1424e6ec1f3a202ed9]
+
+	Fold in the gradient
+
+	Change-Id: Ifc74553823509f1c4978e9e38d13bbafb855eff8
+
+2013-11-21  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [f7aa5e4c068591516138780bbe308a014c95c9d1]
+
+	Fold tabStops into the propList
+
+	Change-Id: Iee866e27e76327fc04385e19ebcad2b6b4f36ea1
+
+2013-11-21  David Tardon  <dtardon@redhat.com>  [322e028d2e60ead70da2b56c2624dd4bf9ba6256]
+
+	fix XML
+
+	Change-Id: Ie97830c45abf2f14abcacb2f02cdba5f444c3e81
+
+2013-11-20  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [ebef8c8a917fa6e80c1914cbce35ac1f7bed1cc9]
+
+	Folding paths into propLists
+
+	Change-Id: I7835be8ec70392e1bc5c596566a113c3da8f2012
+
+2013-11-14  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [70142788a4291a2302c8da2cd7fc783d355d46f3]
+
+	Adapt to the change in RVNGBinaryData
+
+	Change-Id: Iab7e756d10fa3b438fb644af746a71f452d6de82
+
+2013-11-14  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [160bf0730eccf727d59b6ad41417631c48844915]
+
+	Adapt to API change in librevenge
+
+	Change-Id: I5a705cc554d6bedbbf93cd1bf798461dc50f376a
+
+2013-11-08  David Tardon  <dtardon@redhat.com>  [dfbb827940bcf2e8b1ffcea48db10050c0d80e9e]
+
+	adapt to librevenge generator changes
+
+	Change-Id: I3ab3ab4c8100fbd391780a4df6c01832cfd91d9d
+
+2013-11-07  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [8c10286ed99c0e8682c7563282a06da11cf136b2]
+
+	historically this svg was in svg namespace
+
+	Change-Id: If0eeb76c1ebb9e264b58c3597884b0370b74106f
+
+2013-11-07  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [0329157c79f7f5a03a0ef4f651978363d0f6e1ce]
+
+	Small fix
+
+	Change-Id: Ie4e9f82756e2337124a8b56507f7e6bc0a5a8397
+
+2013-11-06  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [55a6ddba97e6c331623bf4f08a8a7f1052298d0f]
+
+	Set dependencies right
+
+	Change-Id: I77f674bf6e70d6dd0d400677802c9b247824d455
+
+2013-11-06  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [fd93a83e675ebff31c9ab8d3d0abdc8e41c964fc]
+
+	Some callcatcher stuff
+
+	Change-Id: Icf5b5ade64b81a37fac79e930527e3e2b8d841bb
+
+2013-11-06  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [ec016ece81f4a63b313adef249cddc2f3f547f2e]
+
+	Ditch spec and zip files
+
+	Change-Id: I552f00cb2549f4127e89210be013a64b84c3c65d
+
+2013-11-06  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [61795c6bf7c86135324994e4f26aa88b8464ecf4]
+
+	Ditch libtoken.a
+
+	Change-Id: I2bf6d364340396cff530f429d27530abcbda80d0
+
+2013-11-05  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [1f93cd5ef60ff1c3008e507f29123d7f2ea0449a]
+
+	Missing includes
+
+	Change-Id: Ifc3be1a5c6e9219da5aa9da270f14aa96ab492ae
+
+2013-11-05  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [325248eff211f52fbd8fd41835b942194b94a7a4]
+
+	Use RVNGTextDrawingGenerator
+
+	Change-Id: Ie775928694fd562d380e6f9600d31e5911d48b8c
+
+2013-11-05  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [bcce044ce26cea0d863cef8fd34d7cda7182caf6]
+
+	--disable-tools actually working
+
+	Change-Id: I83bd3e4c35d2a250b61626aa826b473c5d6edd14
+
+2013-11-05  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [bdfaab8e82224873c4e18a9c3ae058d734ff1b7d]
+
+	Add printing of indent levels in vs?2raw
+
+	Change-Id: I034d6e604b60ddbfc21e1ddee2935d59f9bd1292
+
+2013-11-05  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [143fecc00b53b751a11bb0b9301a95c7cd114441]
+
+	port to librevenge-generators
+
+	Change-Id: Ie15bcf35d65fdd1b4a9ccd0b59fea05136400625
+
+2013-11-05  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [2553cd43803e6af436a6c9e1aa40b4c1d2c3e3d2]
+
+	librevenge namespace
+
+	Change-Id: I68cc109a7583067dd375db5a98b291b5c3a20b4b
+
+2013-11-04  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [a4f32c029aee58079c69f8c46519f6cf30cb3c11]
+
+	Fix VSDSVGGenerator
+
+	Change-Id: I1bf77b0e74424dbac7cdc053129b64b608989110
+
+2013-11-04  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [38e5d2998d4285df3cefdbcb60e149dc2a21fa92]
+
+	Right pc-file content
+
+	Change-Id: Ib7a273842b58d512e0f2b1c3128c96bc95617ab4
+
+2013-11-04  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [ee6263e6d4c07359f579ef5530c5356bfd9724a5]
+
+	trying to move libvisio to librevenge API
+
+	Change-Id: I6a17a8e0e435b4de87e0017bddb5d16f6b1a543d
+
+2013-10-17  David Tardon  <dtardon@redhat.com>  [410f564d9a728b983cf11ba9b3eadfc7d59c187c]
+
+	fdo#70480 do not crash reading malformed zip
+
+	Change-Id: Ia37e8be5172a49669cb9f7271c5401ca88f39072
+
+2013-09-21  David Tardon  <dtardon@redhat.com>  [1cd13d6b94c8cc432cce2d2811a79bfe58d57275]
+
+	WaE: ... should be initialized in the member init. list
+
+	Change-Id: I6c0d63b47f361b030481f58a6788b2ff4b0ee5be
+
+2013-09-03  David Tardon  <dtardon@redhat.com>  [21021e51b97eba53308e504ce6b6b5e23b40cf08]
+
+	add cgit/gitweb URLs
+
+	Change-Id: I9ad2904ab48d836a8ee26e512d2db97a0f6304cf
+	Reviewed-on: https://gerrit.libreoffice.org/5779
+	Reviewed-by: David Tardon <dtardon@redhat.com>
+	Tested-by: David Tardon <dtardon@redhat.com>
+
+2013-09-03  David Tardon  <dtardon@redhat.com>  [5ab187ae8db28edc323775ce6987713953722a09]
+
+	set up git-review
+
+
+2013-09-02  David Tardon  <dtardon@redhat.com>  [2a761ab7c64ae81f9b96d8f011af0ce6175de305]
+
+	add README
+
+
+2013-09-02  Norbert Thiebaud  <nthiebaud@gmail.com>  [9f1834eee7278dd3ae5d3664c818bee147785ab4]
+
+	add automatic git hook setting in autogen.sh
+
+	Change-Id: I95eb02dc2d347337d7b85f85d6459353278fb137
+	Reviewed-on: https://gerrit.libreoffice.org/5748
+	Reviewed-by: Fridrich Strba <fridrich@documentfoundation.org>
+	Tested-by: Fridrich Strba <fridrich@documentfoundation.org>
+
 2013-08-28  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [27a9dd758a7ecd9233710139b21565655f270b99]
 
 	Bump version

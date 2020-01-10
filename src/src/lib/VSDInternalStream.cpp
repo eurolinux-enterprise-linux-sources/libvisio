@@ -1,56 +1,18 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* libvisio
- * Version: MPL 1.1 / GPLv2+ / LGPLv2+
+/*
+ * This file is part of the libvisio project.
  *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License or as specified alternatively below. You may obtain a copy of
- * the License at http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * Major Contributor(s):
- * Copyright (C) 2011 Fridrich Strba <fridrich.strba@bluewin.ch>
- * Copyright (C) 2011 Eilidh McAdam <tibbylickle@gmail.com>
- *
- *
- * All Rights Reserved.
- *
- * For minor contributions see the git repository.
- *
- * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPLv2+"), or
- * the GNU Lesser General Public License Version 2 or later (the "LGPLv2+"),
- * in which case the provisions of the GPLv2+ or the LGPLv2+ are applicable
- * instead of those above.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-
 
 #include <string.h>
 #include "VSDInternalStream.h"
 
 
-VSDInternalStream::VSDInternalStream(const std::vector<unsigned char> &buffer) :
-  WPXInputStream(),
-  m_offset(0),
-  m_buffer(buffer)
-{
-}
-
-VSDInternalStream::VSDInternalStream(const unsigned char *buffer, size_t bufferLength) :
-  WPXInputStream(),
-  m_offset(0),
-  m_buffer(bufferLength)
-{
-  memcpy(&m_buffer[0], buffer, bufferLength);
-}
-
-
-VSDInternalStream::VSDInternalStream(WPXInputStream *input, unsigned long size, bool compressed) :
-  WPXInputStream(),
+VSDInternalStream::VSDInternalStream(librevenge::RVNGInputStream *input, unsigned long size, bool compressed) :
+  librevenge::RVNGInputStream(),
   m_offset(0),
   m_buffer()
 {
@@ -139,11 +101,11 @@ const unsigned char *VSDInternalStream::read(unsigned long numBytes, unsigned lo
   return &m_buffer[oldOffset];
 }
 
-int VSDInternalStream::seek(long offset, WPX_SEEK_TYPE seekType)
+int VSDInternalStream::seek(long offset, librevenge::RVNG_SEEK_TYPE seekType)
 {
-  if (seekType == WPX_SEEK_CUR)
+  if (seekType == librevenge::RVNG_SEEK_CUR)
     m_offset += offset;
-  else if (seekType == WPX_SEEK_SET)
+  else if (seekType == librevenge::RVNG_SEEK_SET)
     m_offset = offset;
 
   if (m_offset < 0)
@@ -165,7 +127,7 @@ long VSDInternalStream::tell()
   return m_offset;
 }
 
-bool VSDInternalStream::atEOS()
+bool VSDInternalStream::isEnd()
 {
   if ((long)m_offset >= (long)m_buffer.size())
     return true;

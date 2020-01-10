@@ -1,34 +1,13 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* libvisio
- * Version: MPL 1.1 / GPLv2+ / LGPLv2+
+/*
+ * This file is part of the libvisio project.
  *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License or as specified alternatively below. You may obtain a copy of
- * the License at http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * Major Contributor(s):
- * Copyright (C) 2011 Fridrich Strba <fridrich.strba@bluewin.ch>
- * Copyright (C) 2011 Eilidh McAdam <tibbylickle@gmail.com>
- *
- *
- * All Rights Reserved.
- *
- * For minor contributions see the git repository.
- *
- * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPLv2+"), or
- * the GNU Lesser General Public License Version 2 or later (the "LGPLv2+"),
- * in which case the provisions of the GPLv2+ or the LGPLv2+ are applicable
- * instead of those above.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include <libwpd-stream/libwpd-stream.h>
+#include <librevenge-stream/librevenge-stream.h>
 #include <locale.h>
 #include <sstream>
 #include <string>
@@ -40,51 +19,51 @@
 #include "VSDContentCollector.h"
 #include "VSDStylesCollector.h"
 
-libvisio::VSD5Parser::VSD5Parser(WPXInputStream *input, libwpg::WPGPaintInterface *painter)
+libvisio::VSD5Parser::VSD5Parser(librevenge::RVNGInputStream *input, librevenge::RVNGDrawingInterface *painter)
   : VSD6Parser(input, painter)
 {}
 
 libvisio::VSD5Parser::~VSD5Parser()
 {}
 
-void libvisio::VSD5Parser::readPointer(WPXInputStream *input, Pointer &ptr)
+void libvisio::VSD5Parser::readPointer(librevenge::RVNGInputStream *input, Pointer &ptr)
 {
   ptr.Type = readU16(input) & 0x00ff;
   ptr.Format = readU16(input) & 0x00ff;
-  input->seek(4, WPX_SEEK_CUR); // Skip dword
+  input->seek(4, librevenge::RVNG_SEEK_CUR); // Skip dword
   ptr.Offset = readU32(input);
   ptr.Length = readU32(input);
 }
 
-void libvisio::VSD5Parser::readPointerInfo(WPXInputStream *input, unsigned ptrType, unsigned shift, unsigned &listSize, int &pointerCount)
+void libvisio::VSD5Parser::readPointerInfo(librevenge::RVNGInputStream *input, unsigned ptrType, unsigned shift, unsigned &listSize, int &pointerCount)
 {
   VSD_DEBUG_MSG(("VSD5Parser::readPointerInfo\n"));
   switch (ptrType)
   {
   case VSD_TRAILER_STREAM:
-    input->seek(shift+0x82, WPX_SEEK_SET);
+    input->seek(shift+0x82, librevenge::RVNG_SEEK_SET);
     break;
   case VSD_PAGE:
-    input->seek(shift+0x42, WPX_SEEK_SET);
+    input->seek(shift+0x42, librevenge::RVNG_SEEK_SET);
     break;
   case VSD_FONT_LIST:
-    input->seek(shift+0x2e, WPX_SEEK_SET);
+    input->seek(shift+0x2e, librevenge::RVNG_SEEK_SET);
     break;
   case VSD_STYLES:
-    input->seek(shift+0x12, WPX_SEEK_SET);
+    input->seek(shift+0x12, librevenge::RVNG_SEEK_SET);
     break;
   case VSD_STENCILS:
   case VSD_SHAPE_FOREIGN:
-    input->seek(shift+0x1e, WPX_SEEK_SET);
+    input->seek(shift+0x1e, librevenge::RVNG_SEEK_SET);
     break;
   case VSD_STENCIL_PAGE:
-    input->seek(shift+0x36, WPX_SEEK_SET);
+    input->seek(shift+0x36, librevenge::RVNG_SEEK_SET);
     break;
   default:
     if (ptrType > 0x45)
-      input->seek(shift+0x1e, WPX_SEEK_SET);
+      input->seek(shift+0x1e, librevenge::RVNG_SEEK_SET);
     else
-      input->seek(shift+0xa, WPX_SEEK_SET);
+      input->seek(shift+0xa, librevenge::RVNG_SEEK_SET);
     break;
   }
   pointerCount = readS16(input);
@@ -92,16 +71,16 @@ void libvisio::VSD5Parser::readPointerInfo(WPXInputStream *input, unsigned ptrTy
   VSD_DEBUG_MSG(("VSD5Parser::readPointerInfo ptrType %u shift %u pointerCount %i\n", ptrType, shift, pointerCount));
 }
 
-bool libvisio::VSD5Parser::getChunkHeader(WPXInputStream *input)
+bool libvisio::VSD5Parser::getChunkHeader(librevenge::RVNGInputStream *input)
 {
   unsigned char tmpChar = 0;
-  while (!input->atEOS() && !tmpChar)
+  while (!input->isEnd() && !tmpChar)
     tmpChar = readU8(input);
 
-  if (input->atEOS())
+  if (input->isEnd())
     return false;
   else
-    input->seek(-1, WPX_SEEK_CUR);
+    input->seek(-1, librevenge::RVNG_SEEK_CUR);
 
   m_header.chunkType = getUInt(input);
   m_header.id = getUInt(input);
@@ -117,15 +96,15 @@ bool libvisio::VSD5Parser::getChunkHeader(WPXInputStream *input)
   return true;
 }
 
-void libvisio::VSD5Parser::handleChunkRecords(WPXInputStream *input)
+void libvisio::VSD5Parser::handleChunkRecords(librevenge::RVNGInputStream *input)
 {
   long startPosition = input->tell();
   long endPosition = input->tell() + m_header.dataLength;
-  input->seek(endPosition - 4, WPX_SEEK_SET);
+  input->seek(endPosition - 4, librevenge::RVNG_SEEK_SET);
   unsigned numRecords = readU16(input);
   unsigned endOffset = readU16(input);
   std::map<unsigned, ChunkHeader> records;
-  input->seek(endPosition-4*(numRecords+1), WPX_SEEK_SET);
+  input->seek(endPosition-4*(numRecords+1), librevenge::RVNG_SEEK_SET);
   unsigned i = 0;
   for (i = 0; i < numRecords; ++i)
   {
@@ -145,12 +124,12 @@ void libvisio::VSD5Parser::handleChunkRecords(WPXInputStream *input)
   {
     m_header = iter->second;
     m_header.id = i++;
-    input->seek(startPosition + iter->first, WPX_SEEK_SET);
+    input->seek(startPosition + iter->first, librevenge::RVNG_SEEK_SET);
     handleChunk(input);
   }
 }
 
-void libvisio::VSD5Parser::readGeomList(WPXInputStream *input)
+void libvisio::VSD5Parser::readGeomList(librevenge::RVNGInputStream *input)
 {
   VSD_DEBUG_MSG(("VSD5Parser::readGeomList\n"));
   if (!m_shape.m_geometries.empty() && m_currentGeometryList->empty())
@@ -162,57 +141,57 @@ void libvisio::VSD5Parser::readGeomList(WPXInputStream *input)
   handleChunkRecords(input);
 }
 
-void libvisio::VSD5Parser::readList(WPXInputStream *input)
+void libvisio::VSD5Parser::readList(librevenge::RVNGInputStream *input)
 {
   if (!m_isStencilStarted)
     m_collector->collectUnhandledChunk(m_header.id, m_header.level);
   handleChunkRecords(input);
 }
 
-void libvisio::VSD5Parser::readCharList(WPXInputStream *input)
+void libvisio::VSD5Parser::readCharList(librevenge::RVNGInputStream *input)
 {
   VSD_DEBUG_MSG(("VSD5Parser::readCharList\n"));
   readList(input);
 }
 
-void libvisio::VSD5Parser::readParaList(WPXInputStream *input)
+void libvisio::VSD5Parser::readParaList(librevenge::RVNGInputStream *input)
 {
   VSD_DEBUG_MSG(("VSD5Parser::readParaList\n"));
   readList(input);
 }
 
-void libvisio::VSD5Parser::readShapeList(WPXInputStream *input)
+void libvisio::VSD5Parser::readShapeList(librevenge::RVNGInputStream *input)
 {
   VSD_DEBUG_MSG(("VSD5Parser::readShapeList\n"));
   readList(input);
 }
 
-void libvisio::VSD5Parser::readPropList(WPXInputStream *input)
+void libvisio::VSD5Parser::readPropList(librevenge::RVNGInputStream *input)
 {
   VSD_DEBUG_MSG(("VSD5Parser::readPropList\n"));
   readList(input);
 }
 
-void libvisio::VSD5Parser::readFieldList(WPXInputStream *input)
+void libvisio::VSD5Parser::readFieldList(librevenge::RVNGInputStream *input)
 {
   VSD_DEBUG_MSG(("VSD5Parser::readFieldList\n"));
   readList(input);
 }
 
-void libvisio::VSD5Parser::readNameList2(WPXInputStream *input)
+void libvisio::VSD5Parser::readNameList2(librevenge::RVNGInputStream *input)
 {
   VSD_DEBUG_MSG(("VSD5Parser::readNameList2\n"));
   readList(input);
 }
 
-void libvisio::VSD5Parser::readLine(WPXInputStream *input)
+void libvisio::VSD5Parser::readLine(librevenge::RVNGInputStream *input)
 {
-  input->seek(1, WPX_SEEK_CUR);
+  input->seek(1, librevenge::RVNG_SEEK_CUR);
   double strokeWidth = readDouble(input);
   unsigned char colourIndex = readU8(input);
   Colour c = _colourFromIndex(colourIndex);
   unsigned char linePattern = readU8(input);
-  input->seek(10, WPX_SEEK_CUR);
+  input->seek(10, librevenge::RVNG_SEEK_CUR);
   unsigned char startMarker = readU8(input);
   unsigned char endMarker = readU8(input);
   unsigned char lineCap = readU8(input);
@@ -223,7 +202,7 @@ void libvisio::VSD5Parser::readLine(WPXInputStream *input)
     m_shape.m_lineStyle.override(VSDOptionalLineStyle(strokeWidth, c, linePattern, startMarker, endMarker, lineCap));
 }
 
-void libvisio::VSD5Parser::readCharIX(WPXInputStream *input)
+void libvisio::VSD5Parser::readCharIX(librevenge::RVNGInputStream *input)
 {
   unsigned charCount = readU16(input);
   unsigned fontID = readU16(input);
@@ -256,7 +235,7 @@ void libvisio::VSD5Parser::readCharIX(WPXInputStream *input)
   if (fontMod & 1) superscript = true;
   if (fontMod & 2) subscript = true;
 
-  input->seek(4, WPX_SEEK_CUR);
+  input->seek(4, librevenge::RVNG_SEEK_CUR);
   double fontSize = readDouble(input);
 
 #if 0
@@ -278,21 +257,21 @@ void libvisio::VSD5Parser::readCharIX(WPXInputStream *input)
     }
 
     m_shape.m_charStyle.override(VSDOptionalCharStyle(charCount, font, fontColour, fontSize,
-                                 bold, italic, underline, doubleunderline, strikeout, doublestrikeout,
-                                 allcaps, initcaps, smallcaps, superscript, subscript));
+                                                      bold, italic, underline, doubleunderline, strikeout, doublestrikeout,
+                                                      allcaps, initcaps, smallcaps, superscript, subscript));
     m_shape.m_charList.addCharIX(m_header.id, m_header.level, charCount, font, fontColour, fontSize,
                                  bold, italic, underline, doubleunderline, strikeout, doublestrikeout,
                                  allcaps, initcaps, smallcaps, superscript, subscript);
   }
 }
 
-void libvisio::VSD5Parser::readFillAndShadow(WPXInputStream *input)
+void libvisio::VSD5Parser::readFillAndShadow(librevenge::RVNGInputStream *input)
 {
   Colour colourFG = _colourFromIndex(readU8(input));
   Colour colourBG = _colourFromIndex(readU8(input));
   unsigned char fillPattern = readU8(input);
   Colour shfgc = _colourFromIndex(readU8(input));
-  input->seek(1, WPX_SEEK_CUR); // Shadow Background Colour skipped
+  input->seek(1, librevenge::RVNG_SEEK_CUR); // Shadow Background Colour skipped
   unsigned char shadowPattern = readU8(input);
 
   if (m_isInStyles)
@@ -314,13 +293,13 @@ void libvisio::VSD5Parser::readFillAndShadow(WPXInputStream *input)
       shadowOffsetY = m_shadowOffsetY;
     }
     m_shape.m_fillStyle.override(VSDOptionalFillStyle(colourFG, colourBG, fillPattern, 0.0,
-                                 0.0, shfgc, shadowPattern, shadowOffsetX, shadowOffsetY));
+                                                      0.0, shfgc, shadowPattern, shadowOffsetX, shadowOffsetY));
   }
 }
 
-void libvisio::VSD5Parser::readStyleSheet(WPXInputStream *input)
+void libvisio::VSD5Parser::readStyleSheet(librevenge::RVNGInputStream *input)
 {
-  input->seek(10, WPX_SEEK_CUR);
+  input->seek(10, librevenge::RVNG_SEEK_CUR);
   unsigned lineStyle = getUInt(input);
   unsigned fillStyle = getUInt(input);
   unsigned textStyle = getUInt(input);
@@ -328,7 +307,7 @@ void libvisio::VSD5Parser::readStyleSheet(WPXInputStream *input)
   m_collector->collectStyleSheet(m_header.id, m_header.level, lineStyle, fillStyle, textStyle);
 }
 
-void libvisio::VSD5Parser::readShape(WPXInputStream *input)
+void libvisio::VSD5Parser::readShape(librevenge::RVNGInputStream *input)
 {
   m_currentGeomListCount = 0;
   m_isShapeStarted = true;
@@ -345,9 +324,9 @@ void libvisio::VSD5Parser::readShape(WPXInputStream *input)
 
   try
   {
-    input->seek(2, WPX_SEEK_CUR);
+    input->seek(2, librevenge::RVNG_SEEK_CUR);
     parent = getUInt(input);
-    input->seek(2, WPX_SEEK_CUR);
+    input->seek(2, librevenge::RVNG_SEEK_CUR);
     masterPage = getUInt(input);
     masterShape = getUInt(input);
     lineStyle = getUInt(input);
@@ -378,21 +357,21 @@ void libvisio::VSD5Parser::readShape(WPXInputStream *input)
   m_currentShapeID = MINUS_ONE;
 }
 
-void libvisio::VSD5Parser::readPage(WPXInputStream *input)
+void libvisio::VSD5Parser::readPage(librevenge::RVNGInputStream *input)
 {
   unsigned backgroundPageID = getUInt(input);
   m_collector->collectPage(m_header.id, m_header.level, backgroundPageID, m_isBackgroundPage, m_currentPageName);
 }
 
-void libvisio::VSD5Parser::readTextBlock(WPXInputStream *input)
+void libvisio::VSD5Parser::readTextBlock(librevenge::RVNGInputStream *input)
 {
-  input->seek(1, WPX_SEEK_CUR);
+  input->seek(1, librevenge::RVNG_SEEK_CUR);
   double leftMargin = readDouble(input);
-  input->seek(1, WPX_SEEK_CUR);
+  input->seek(1, librevenge::RVNG_SEEK_CUR);
   double rightMargin = readDouble(input);
-  input->seek(1, WPX_SEEK_CUR);
+  input->seek(1, librevenge::RVNG_SEEK_CUR);
   double topMargin = readDouble(input);
-  input->seek(1, WPX_SEEK_CUR);
+  input->seek(1, librevenge::RVNG_SEEK_CUR);
   double bottomMargin = readDouble(input);
   unsigned char verticalAlign = readU8(input);
   unsigned char colourIndex = readU8(input);
@@ -406,12 +385,12 @@ void libvisio::VSD5Parser::readTextBlock(WPXInputStream *input)
                                        verticalAlign, isBgFilled, c, 0.0, (unsigned char)0);
   else
     m_shape.m_textBlockStyle.override(VSDOptionalTextBlockStyle(leftMargin, rightMargin, topMargin, bottomMargin,
-                                      verticalAlign, isBgFilled, c, 0.0, (unsigned char)0));
+                                                                verticalAlign, isBgFilled, c, 0.0, (unsigned char)0));
 }
 
-void libvisio::VSD5Parser::readTextField(WPXInputStream *input)
+void libvisio::VSD5Parser::readTextField(librevenge::RVNGInputStream *input)
 {
-  input->seek(3, WPX_SEEK_CUR);
+  input->seek(3, librevenge::RVNG_SEEK_CUR);
   if (0xe8 == readU8(input))
   {
     int nameId = readS16(input);
@@ -424,7 +403,7 @@ void libvisio::VSD5Parser::readTextField(WPXInputStream *input)
   }
 }
 
-void libvisio::VSD5Parser::readNameIDX(WPXInputStream *input)
+void libvisio::VSD5Parser::readNameIDX(librevenge::RVNGInputStream *input)
 {
   VSD_DEBUG_MSG(("VSD5Parser::readNameIDX\n"));
   std::map<unsigned, VSDName> names;
@@ -441,13 +420,13 @@ void libvisio::VSD5Parser::readNameIDX(WPXInputStream *input)
 }
 
 
-unsigned libvisio::VSD5Parser::getUInt(WPXInputStream *input)
+unsigned libvisio::VSD5Parser::getUInt(librevenge::RVNGInputStream *input)
 {
   int value = readS16(input);
   return (unsigned)value;
 }
 
-int libvisio::VSD5Parser::getInt(WPXInputStream *input)
+int libvisio::VSD5Parser::getInt(librevenge::RVNGInputStream *input)
 {
   return readS16(input);
 }

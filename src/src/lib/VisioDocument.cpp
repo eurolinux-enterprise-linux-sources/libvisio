@@ -1,52 +1,29 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* libvisio
- * Version: MPL 1.1 / GPLv2+ / LGPLv2+
+/*
+ * This file is part of the libvisio project.
  *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License or as specified alternatively below. You may obtain a copy of
- * the License at http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * Major Contributor(s):
- * Copyright (C) 2011 Fridrich Strba <fridrich.strba@bluewin.ch>
- * Copyright (C) 2011 Eilidh McAdam <tibbylickle@gmail.com>
- *
- *
- * All Rights Reserved.
- *
- * For minor contributions see the git repository.
- *
- * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPLv2+"), or
- * the GNU Lesser General Public License Version 2 or later (the "LGPLv2+"),
- * in which case the provisions of the GPLv2+ or the LGPLv2+ are applicable
- * instead of those above.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 #include <string>
-#include <libwpd-stream/libwpd-stream.h>
+#include <librevenge/librevenge.h>
 #include <libvisio/libvisio.h>
 #include "libvisio_utils.h"
 #include "VDXParser.h"
-#include "VSDSVGGenerator.h"
 #include "VSDParser.h"
 #include "VSDXParser.h"
 #include "VSD5Parser.h"
 #include "VSD6Parser.h"
 #include "VSDXMLHelper.h"
-#include "VSDZipStream.h"
 
 namespace
 {
 
 #define VISIO_MAGIC_LENGTH 21
 
-static bool checkVisioMagic(WPXInputStream *input)
+static bool checkVisioMagic(librevenge::RVNGInputStream *input)
 {
   int startPosition = (int)input->tell();
   try
@@ -98,38 +75,38 @@ static bool checkVisioMagic(WPXInputStream *input)
       returnValue = false;
     else if (0x00 != buffer[20])
       returnValue = false;
-    input->seek(startPosition, WPX_SEEK_SET);
+    input->seek(startPosition, librevenge::RVNG_SEEK_SET);
     return returnValue;
   }
   catch (...)
   {
-    input->seek(startPosition, WPX_SEEK_SET);
+    input->seek(startPosition, librevenge::RVNG_SEEK_SET);
     return false;
   }
 }
 
-static bool isBinaryVisioDocument(WPXInputStream *input)
+static bool isBinaryVisioDocument(librevenge::RVNGInputStream *input)
 {
-  WPXInputStream *docStream = 0;
+  librevenge::RVNGInputStream *docStream = 0;
   try
   {
-    input->seek(0, WPX_SEEK_SET);
-    if (input->isOLEStream())
+    input->seek(0, librevenge::RVNG_SEEK_SET);
+    if (input->isStructured())
     {
-      input->seek(0, WPX_SEEK_SET);
-      docStream = input->getDocumentOLEStream("VisioDocument");
+      input->seek(0, librevenge::RVNG_SEEK_SET);
+      docStream = input->getSubStreamByName("VisioDocument");
     }
     if (!docStream)
       docStream = input;
 
-    docStream->seek(0, WPX_SEEK_SET);
+    docStream->seek(0, librevenge::RVNG_SEEK_SET);
     unsigned char version = 0;
     if (checkVisioMagic(docStream))
     {
-      docStream->seek(0x1A, WPX_SEEK_SET);
+      docStream->seek(0x1A, librevenge::RVNG_SEEK_SET);
       version = libvisio::readU8(docStream);
     }
-    input->seek(0, WPX_SEEK_SET);
+    input->seek(0, librevenge::RVNG_SEEK_SET);
     if (docStream && docStream != input)
       delete docStream;
     docStream = 0;
@@ -152,23 +129,23 @@ static bool isBinaryVisioDocument(WPXInputStream *input)
   return false;
 }
 
-static bool parseBinaryVisioDocument(WPXInputStream *input, libwpg::WPGPaintInterface *painter, bool isStencilExtraction)
+static bool parseBinaryVisioDocument(librevenge::RVNGInputStream *input, librevenge::RVNGDrawingInterface *painter, bool isStencilExtraction)
 {
   VSD_DEBUG_MSG(("Parsing Binary Visio Document\n"));
-  input->seek(0, WPX_SEEK_SET);
-  WPXInputStream *docStream = 0;
-  if (input->isOLEStream())
-    docStream = input->getDocumentOLEStream("VisioDocument");
+  input->seek(0, librevenge::RVNG_SEEK_SET);
+  librevenge::RVNGInputStream *docStream = 0;
+  if (input->isStructured())
+    docStream = input->getSubStreamByName("VisioDocument");
   if (!docStream)
     docStream = input;
 
-  docStream->seek(0x1A, WPX_SEEK_SET);
+  docStream->seek(0x1A, librevenge::RVNG_SEEK_SET);
 
   libvisio::VSDParser *parser = 0;
   try
   {
     unsigned char version = libvisio::readU8(docStream);
-    switch(version)
+    switch (version)
     {
     case 1:
     case 2:
@@ -181,7 +158,7 @@ static bool parseBinaryVisioDocument(WPXInputStream *input, libwpg::WPGPaintInte
       parser = new libvisio::VSD6Parser(docStream, painter);
       break;
     case 11:
-      parser = new libvisio::VSDParser(docStream, painter);
+      parser = new libvisio::VSDParser(docStream, painter, input);
       break;
     default:
       break;
@@ -218,18 +195,16 @@ static bool parseBinaryVisioDocument(WPXInputStream *input, libwpg::WPGPaintInte
   return false;
 }
 
-static bool isOpcVisioDocument(WPXInputStream *input)
+static bool isOpcVisioDocument(librevenge::RVNGInputStream *input)
 {
-  WPXInputStream *tmpInput = 0;
+  librevenge::RVNGInputStream *tmpInput = 0;
   try
   {
-    input->seek(0, WPX_SEEK_SET);
-    libvisio::VSDZipStream zinput(input);
-    // Kidnapping the OLE document API and extending it to support zip files.
-    if (!zinput.isOLEStream())
+    input->seek(0, librevenge::RVNG_SEEK_SET);
+    if (!input->isStructured())
       return false;
 
-    tmpInput = zinput.getDocumentOLEStream("_rels/.rels");
+    tmpInput = input->getSubStreamByName("_rels/.rels");
     if (!tmpInput)
       return false;
 
@@ -242,7 +217,7 @@ static bool isOpcVisioDocument(WPXInputStream *input)
       return false;
 
     // check whether the pointed Visio document stream exists in the document
-    tmpInput = zinput.getDocumentOLEStream(rel->getTarget().c_str());
+    tmpInput = input->getSubStreamByName(rel->getTarget().c_str());
     if (!tmpInput)
       return false;
     delete tmpInput;
@@ -256,10 +231,10 @@ static bool isOpcVisioDocument(WPXInputStream *input)
   }
 }
 
-static bool parseOpcVisioDocument(WPXInputStream *input, libwpg::WPGPaintInterface *painter, bool isStencilExtraction)
+static bool parseOpcVisioDocument(librevenge::RVNGInputStream *input, librevenge::RVNGDrawingInterface *painter, bool isStencilExtraction)
 {
   VSD_DEBUG_MSG(("Parsing Visio Document based on Open Packaging Convention\n"));
-  input->seek(0, WPX_SEEK_SET);
+  input->seek(0, librevenge::RVNG_SEEK_SET);
   libvisio::VSDXParser parser(input, painter);
   if (isStencilExtraction && parser.extractStencils())
     return true;
@@ -268,12 +243,12 @@ static bool parseOpcVisioDocument(WPXInputStream *input, libwpg::WPGPaintInterfa
   return false;
 }
 
-static bool isXmlVisioDocument(WPXInputStream *input)
+static bool isXmlVisioDocument(librevenge::RVNGInputStream *input)
 {
   xmlTextReaderPtr reader = 0;
   try
   {
-    input->seek(0, WPX_SEEK_SET);
+    input->seek(0, librevenge::RVNG_SEEK_SET);
     reader = libvisio::xmlReaderForStream(input, 0, 0, XML_PARSE_NOBLANKS|XML_PARSE_NOENT|XML_PARSE_NONET|XML_PARSE_RECOVER);
     if (!reader)
       return false;
@@ -324,10 +299,10 @@ static bool isXmlVisioDocument(WPXInputStream *input)
   }
 }
 
-static bool parseXmlVisioDocument(WPXInputStream *input, libwpg::WPGPaintInterface *painter, bool isStencilExtraction)
+static bool parseXmlVisioDocument(librevenge::RVNGInputStream *input, librevenge::RVNGDrawingInterface *painter, bool isStencilExtraction)
 {
   VSD_DEBUG_MSG(("Parsing Visio DrawingML Document\n"));
-  input->seek(0, WPX_SEEK_SET);
+  input->seek(0, librevenge::RVNG_SEEK_SET);
   libvisio::VDXParser parser(input, painter);
   if (isStencilExtraction && parser.extractStencils())
     return true;
@@ -345,8 +320,11 @@ Analyzes the content of an input stream to see if it can be parsed
 \return A value that indicates whether the content from the input
 stream is a Visio Document that libvisio able to parse
 */
-bool libvisio::VisioDocument::isSupported(WPXInputStream *input)
+VSDAPI bool libvisio::VisioDocument::isSupported(librevenge::RVNGInputStream *input)
 {
+  if (!input)
+    return false;
+
   if (isBinaryVisioDocument(input))
     return true;
   if (isOpcVisioDocument(input))
@@ -358,14 +336,17 @@ bool libvisio::VisioDocument::isSupported(WPXInputStream *input)
 
 /**
 Parses the input stream content. It will make callbacks to the functions provided by a
-WPGPaintInterface class implementation when needed. This is often commonly called the
+librevenge::RVNGDrawingInterface class implementation when needed. This is often commonly called the
 'main parsing routine'.
 \param input The input stream
 \param painter A WPGPainterInterface implementation
 \return A value that indicates whether the parsing was successful
 */
-bool libvisio::VisioDocument::parse(::WPXInputStream *input, libwpg::WPGPaintInterface *painter)
+VSDAPI bool libvisio::VisioDocument::parse(librevenge::RVNGInputStream *input, librevenge::RVNGDrawingInterface *painter)
 {
+  if (!input || !painter)
+    return false;
+
   if (isBinaryVisioDocument(input))
   {
     if (parseBinaryVisioDocument(input, painter, false))
@@ -389,14 +370,17 @@ bool libvisio::VisioDocument::parse(::WPXInputStream *input, libwpg::WPGPaintInt
 
 /**
 Parses the input stream content and extracts stencil pages, one stencil page per output page.
-It will make callbacks to the functions provided by a WPGPaintInterface class implementation
+It will make callbacks to the functions provided by a librevenge::RVNGDrawingInterface class implementation
 when needed.
 \param input The input stream
 \param painter A WPGPainterInterface implementation
 \return A value that indicates whether the parsing was successful
 */
-bool libvisio::VisioDocument::parseStencils(::WPXInputStream *input, libwpg::WPGPaintInterface *painter)
+VSDAPI bool libvisio::VisioDocument::parseStencils(librevenge::RVNGInputStream *input, librevenge::RVNGDrawingInterface *painter)
 {
+  if (!input || !painter)
+    return false;
+
   if (isBinaryVisioDocument(input))
   {
     if (parseBinaryVisioDocument(input, painter, true))
@@ -416,35 +400,5 @@ bool libvisio::VisioDocument::parseStencils(::WPXInputStream *input, libwpg::WPG
     return false;
   }
   return false;
-}
-
-
-/**
-Parses the input stream content and generates a valid Scalable Vector Graphics
-Provided as a convenience function for applications that support SVG internally.
-\param input The input stream
-\param output The output string whose content is the resulting SVG
-\return A value that indicates whether the SVG generation was successful.
-*/
-bool libvisio::VisioDocument::generateSVG(::WPXInputStream *input, libvisio::VSDStringVector &output)
-{
-  libvisio::VSDSVGGenerator generator(output);
-  bool result = libvisio::VisioDocument::parse(input, &generator);
-  return result;
-}
-
-/**
-Parses the input stream content and extracts stencil pages. It generates a valid
-Scalable Vector Graphics document per stencil.
-Provided as a convenience function for applications that support SVG internally.
-\param input The input stream
-\param output The output string whose content is the resulting SVG
-\return A value that indicates whether the SVG generation was successful.
-*/
-bool libvisio::VisioDocument::generateSVGStencils(::WPXInputStream *input, libvisio::VSDStringVector &output)
-{
-  libvisio::VSDSVGGenerator generator(output);
-  bool result = libvisio::VisioDocument::parseStencils(input, &generator);
-  return result;
 }
 /* vim:set shiftwidth=2 softtabstop=2 expandtab: */

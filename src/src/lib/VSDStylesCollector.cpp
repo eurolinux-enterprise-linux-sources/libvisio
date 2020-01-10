@@ -1,31 +1,10 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* libvisio
- * Version: MPL 1.1 / GPLv2+ / LGPLv2+
+/*
+ * This file is part of the libvisio project.
  *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License or as specified alternatively below. You may obtain a copy of
- * the License at http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * Major Contributor(s):
- * Copyright (C) 2011 Fridrich Strba <fridrich.strba@bluewin.ch>
- * Copyright (C) 2011 Eilidh McAdam <tibbylickle@gmail.com>
- *
- *
- * All Rights Reserved.
- *
- * For minor contributions see the git repository.
- *
- * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPLv2+"), or
- * the GNU Lesser General Public License Version 2 or later (the "LGPLv2+"),
- * in which case the provisions of the GPLv2+ or the LGPLv2+ are applicable
- * instead of those above.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 #include <vector>
@@ -52,46 +31,52 @@ libvisio::VSDStylesCollector::VSDStylesCollector(
 }
 
 void libvisio::VSDStylesCollector::collectEllipticalArcTo(unsigned /* id */, unsigned level, double /* x3 */, double /* y3 */,
-    double /* x2 */, double /* y2 */, double /* angle */, double /* ecc */)
+                                                          double /* x2 */, double /* y2 */, double /* angle */, double /* ecc */)
 {
   _handleLevelChange(level);
 }
 
-void libvisio::VSDStylesCollector::collectForeignData(unsigned level, const WPXBinaryData & /* binaryData */)
+void libvisio::VSDStylesCollector::collectForeignData(unsigned level, const librevenge::RVNGBinaryData & /* binaryData */)
 {
   _handleLevelChange(level);
 }
 
-void libvisio::VSDStylesCollector::collectOLEData(unsigned /* id */, unsigned level, const WPXBinaryData & /* oleData */)
+void libvisio::VSDStylesCollector::collectOLEData(unsigned /* id */, unsigned level, const librevenge::RVNGBinaryData & /* oleData */)
 {
   _handleLevelChange(level);
 }
 
 void libvisio::VSDStylesCollector::collectEllipse(unsigned /* id */, unsigned level, double /* cx */, double /* cy */,
-    double /* xleft */, double /* yleft */, double /* xtop */, double /* ytop */)
+                                                  double /* xleft */, double /* yleft */, double /* xtop */, double /* ytop */)
 {
   _handleLevelChange(level);
 }
 
 void libvisio::VSDStylesCollector::collectLine(unsigned level, const boost::optional<double> & /* strokeWidth */,
-    const boost::optional<Colour> & /* c */, const boost::optional<unsigned char> & /* linePattern */,
-    const boost::optional<unsigned char> & /* startMarker */, const boost::optional<unsigned char> & /* endMarker */,
-    const boost::optional<unsigned char> &/* lineCap */)
+                                               const boost::optional<Colour> & /* c */, const boost::optional<unsigned char> & /* linePattern */,
+                                               const boost::optional<unsigned char> & /* startMarker */, const boost::optional<unsigned char> & /* endMarker */,
+                                               const boost::optional<unsigned char> &/* lineCap */)
 {
   _handleLevelChange(level);
 }
 
 void libvisio::VSDStylesCollector::collectFillAndShadow(unsigned level, const boost::optional<Colour> & /* colourFG */, const boost::optional<Colour> & /* colourBG */,
-    const boost::optional<unsigned char> & /* fillPattern */, const boost::optional<double> & /* fillFGTransparency */,
-    const boost::optional<double> & /* fillBGTransparency */, const boost::optional<unsigned char> & /* shadowPattern */, const boost::optional<Colour> & /* shfgc */,
-    const boost::optional<double> & /* shadowOffsetX */, const boost::optional<double> &/* shadowOffsetY */)
+                                                        const boost::optional<unsigned char> & /* fillPattern */, const boost::optional<double> & /* fillFGTransparency */,
+                                                        const boost::optional<double> & /* fillBGTransparency */, const boost::optional<unsigned char> & /* shadowPattern */, const boost::optional<Colour> & /* shfgc */,
+                                                        const boost::optional<double> & /* shadowOffsetX */, const boost::optional<double> &/* shadowOffsetY */)
 {
   _handleLevelChange(level);
 }
 
 void libvisio::VSDStylesCollector::collectFillAndShadow(unsigned level, const boost::optional<Colour> & /* colourFG */, const boost::optional<Colour> & /* colourBG */,
-    const boost::optional<unsigned char> & /* fillPattern */, const boost::optional<double> & /* fillFGTransparency */,
-    const boost::optional<double> & /* fillBGTransparency */, const boost::optional<unsigned char> & /* shadowPattern */, const boost::optional<Colour> & /* shfgc */)
+                                                        const boost::optional<unsigned char> & /* fillPattern */, const boost::optional<double> & /* fillFGTransparency */,
+                                                        const boost::optional<double> & /* fillBGTransparency */, const boost::optional<unsigned char> & /* shadowPattern */, const boost::optional<Colour> & /* shfgc */)
+{
+  _handleLevelChange(level);
+}
+
+void libvisio::VSDStylesCollector::collectThemeReference(unsigned level, const boost::optional<long> & /* lineColour */, const boost::optional<long> & /* fillColour */,
+                                                         const boost::optional<long> & /* shadowColour */, const boost::optional<long> & /* fontColour */)
 {
   _handleLevelChange(level);
 }
@@ -117,27 +102,27 @@ void libvisio::VSDStylesCollector::collectArcTo(unsigned /* id */, unsigned leve
 }
 
 void libvisio::VSDStylesCollector::collectNURBSTo(unsigned /* id */, unsigned level, double /* x2 */, double /* y2 */,
-    unsigned char /* xType */, unsigned char /* yType */, unsigned /* degree */, const std::vector<std::pair<double, double> > & /* ctrlPts */,
-    const std::vector<double> & /* kntVec */, const std::vector<double> & /* weights */)
+                                                  unsigned char /* xType */, unsigned char /* yType */, unsigned /* degree */, const std::vector<std::pair<double, double> > & /* ctrlPts */,
+                                                  const std::vector<double> & /* kntVec */, const std::vector<double> & /* weights */)
 {
   _handleLevelChange(level);
 }
 
 void libvisio::VSDStylesCollector::collectNURBSTo(unsigned /* id */, unsigned level, double /* x2 */, double /* y2 */, double /* knot */,
-    double /* knotPrev */, double /* weight */, double /* weightPrev */, unsigned /* dataID */)
+                                                  double /* knotPrev */, double /* weight */, double /* weightPrev */, unsigned /* dataID */)
 {
   _handleLevelChange(level);
 }
 
 void libvisio::VSDStylesCollector::collectNURBSTo(unsigned /* id */, unsigned level, double /* x2 */, double /* y2 */, double /* knot */,
-    double /* knotPrev */, double /* weight */, double /* weightPrev */, const NURBSData & /* data */)
+                                                  double /* knotPrev */, double /* weight */, double /* weightPrev */, const NURBSData & /* data */)
 {
   _handleLevelChange(level);
 }
 
 void libvisio::VSDStylesCollector::collectPolylineTo(unsigned /* id */, unsigned level, double /* x */, double /* y */,
-    unsigned char /* xType */, unsigned char /* yType */,
-    const std::vector<std::pair<double, double> > & /* points */)
+                                                     unsigned char /* xType */, unsigned char /* yType */,
+                                                     const std::vector<std::pair<double, double> > & /* points */)
 {
   _handleLevelChange(level);
 }
@@ -153,7 +138,7 @@ void libvisio::VSDStylesCollector::collectPolylineTo(unsigned /* id */, unsigned
 }
 
 void libvisio::VSDStylesCollector::collectSplineStart(unsigned /* id */, unsigned level, double /* x */, double /* y */,
-    double /* secondKnot */, double /* firstKnot */, double /* lastKnot */, unsigned /* degree */)
+                                                      double /* secondKnot */, double /* firstKnot */, double /* lastKnot */, unsigned /* degree */)
 {
   _handleLevelChange(level);
 }
@@ -198,14 +183,14 @@ void libvisio::VSDStylesCollector::collectRelQuadBezTo(unsigned /* id */, unsign
 }
 
 void libvisio::VSDStylesCollector::collectShapeData(unsigned /* id */, unsigned level, unsigned char /* xType */, unsigned char /* yType */,
-    unsigned /* degree */, double /*lastKnot*/, std::vector<std::pair<double, double> > /* controlPoints */,
-    std::vector<double> /* knotVector */, std::vector<double> /* weights */)
+                                                    unsigned /* degree */, double /*lastKnot*/, std::vector<std::pair<double, double> > /* controlPoints */,
+                                                    std::vector<double> /* knotVector */, std::vector<double> /* weights */)
 {
   _handleLevelChange(level);
 }
 
 void libvisio::VSDStylesCollector::collectShapeData(unsigned /* id */, unsigned level, unsigned char /* xType */, unsigned char /* yType */,
-    std::vector<std::pair<double, double> > /* points */)
+                                                    std::vector<std::pair<double, double> > /* points */)
 {
   _handleLevelChange(level);
 }
@@ -232,13 +217,13 @@ void libvisio::VSDStylesCollector::collectShapesOrder(unsigned /* id */, unsigne
 }
 
 void libvisio::VSDStylesCollector::collectForeignDataType(unsigned level, unsigned /* foreignType */, unsigned /* foreignFormat */,
-    double /* offsetX */, double /* offsetY */, double /* width */, double /* height */)
+                                                          double /* offsetX */, double /* offsetY */, double /* width */, double /* height */)
 {
   _handleLevelChange(level);
 }
 
 void libvisio::VSDStylesCollector::collectPageProps(unsigned /* id */, unsigned level, double /* pageWidth */, double /* pageHeight */,
-    double /* shadowOffsetX */, double /* shadowOffsetY */, double /* scale */)
+                                                    double /* shadowOffsetX */, double /* shadowOffsetY */, double /* scale */)
 {
   _handleLevelChange(level);
 }
@@ -249,7 +234,7 @@ void libvisio::VSDStylesCollector::collectPage(unsigned /* id */, unsigned level
 }
 
 void libvisio::VSDStylesCollector::collectShape(unsigned id, unsigned level, unsigned parent, unsigned /*masterPage*/, unsigned /*masterShape*/,
-    unsigned /* lineStyle */, unsigned /* fillStyle */, unsigned /* textStyle */)
+                                                unsigned /* lineStyle */, unsigned /* fillStyle */, unsigned /* textStyle */)
 {
   _handleLevelChange(level);
   m_currentShapeLevel = level;
@@ -269,54 +254,54 @@ void libvisio::VSDStylesCollector::collectUnhandledChunk(unsigned /* id */, unsi
   _handleLevelChange(level);
 }
 
-void libvisio::VSDStylesCollector::collectText(unsigned level, const ::WPXBinaryData & /*textStream*/, TextFormat /*format*/)
+void libvisio::VSDStylesCollector::collectText(unsigned level, const librevenge::RVNGBinaryData & /*textStream*/, TextFormat /*format*/)
 {
   _handleLevelChange(level);
 }
 
 void libvisio::VSDStylesCollector::collectParaIX(unsigned /* id */, unsigned level, unsigned /* charCount */,
-    const boost::optional<double> & /* indFirst */, const boost::optional<double> & /* indLeft */, const boost::optional<double> & /* indRight */,
-    const boost::optional<double> & /* spLine */, const boost::optional<double> & /* spBefore */, const boost::optional<double> & /* spAfter */,
-    const boost::optional<unsigned char> & /* align */, const boost::optional<unsigned> & /* flags */)
+                                                 const boost::optional<double> & /* indFirst */, const boost::optional<double> & /* indLeft */, const boost::optional<double> & /* indRight */,
+                                                 const boost::optional<double> & /* spLine */, const boost::optional<double> & /* spBefore */, const boost::optional<double> & /* spAfter */,
+                                                 const boost::optional<unsigned char> & /* align */, const boost::optional<unsigned> & /* flags */)
 {
   _handleLevelChange(level);
 }
 
 void libvisio::VSDStylesCollector::collectDefaultParaStyle(unsigned /* charCount */, const boost::optional<double> & /* indFirst */,
-    const boost::optional<double> & /* indLeft */, const boost::optional<double> & /* indRight */, const boost::optional<double> & /* spLine */,
-    const boost::optional<double> & /* spBefore */, const boost::optional<double> & /* spAfter */,
-    const boost::optional<unsigned char> & /* align */, const boost::optional<unsigned> & /* flags */)
+                                                           const boost::optional<double> & /* indLeft */, const boost::optional<double> & /* indRight */, const boost::optional<double> & /* spLine */,
+                                                           const boost::optional<double> & /* spBefore */, const boost::optional<double> & /* spAfter */,
+                                                           const boost::optional<unsigned char> & /* align */, const boost::optional<unsigned> & /* flags */)
 {
 }
 
 void libvisio::VSDStylesCollector::collectCharIX(unsigned /* id */, unsigned level, unsigned /* charCount */,
-    const boost::optional<VSDName> & /* font */, const boost::optional<Colour> & /* fontColour */, const boost::optional<double> & /* fontSize */,
-    const boost::optional<bool> & /* bold */, const boost::optional<bool> & /* italic */, const boost::optional<bool> & /* underline */,
-    const boost::optional<bool> & /* doubleunderline */, const boost::optional<bool> & /* strikeout */, const boost::optional<bool> & /* doublestrikeout */,
-    const boost::optional<bool> & /* allcaps */, const boost::optional<bool> & /* initcaps */, const boost::optional<bool> & /* smallcaps */,
-    const boost::optional<bool> & /* superscript */, const boost::optional<bool> & /* subscript */)
+                                                 const boost::optional<VSDName> & /* font */, const boost::optional<Colour> & /* fontColour */, const boost::optional<double> & /* fontSize */,
+                                                 const boost::optional<bool> & /* bold */, const boost::optional<bool> & /* italic */, const boost::optional<bool> & /* underline */,
+                                                 const boost::optional<bool> & /* doubleunderline */, const boost::optional<bool> & /* strikeout */, const boost::optional<bool> & /* doublestrikeout */,
+                                                 const boost::optional<bool> & /* allcaps */, const boost::optional<bool> & /* initcaps */, const boost::optional<bool> & /* smallcaps */,
+                                                 const boost::optional<bool> & /* superscript */, const boost::optional<bool> & /* subscript */)
 {
   _handleLevelChange(level);
 }
 
 void libvisio::VSDStylesCollector::collectDefaultCharStyle(unsigned /* charCount */,
-    const boost::optional<VSDName> & /* font */, const boost::optional<Colour> & /* fontColour */, const boost::optional<double> & /* fontSize */,
-    const boost::optional<bool> & /* bold */, const boost::optional<bool> & /* italic */, const boost::optional<bool> & /* underline */,
-    const boost::optional<bool> & /* doubleunderline */, const boost::optional<bool> & /* strikeout */, const boost::optional<bool> & /* doublestrikeout */,
-    const boost::optional<bool> & /* allcaps */, const boost::optional<bool> & /* initcaps */, const boost::optional<bool> & /* smallcaps */,
-    const boost::optional<bool> & /* superscript */, const boost::optional<bool> & /* subscript */)
+                                                           const boost::optional<VSDName> & /* font */, const boost::optional<Colour> & /* fontColour */, const boost::optional<double> & /* fontSize */,
+                                                           const boost::optional<bool> & /* bold */, const boost::optional<bool> & /* italic */, const boost::optional<bool> & /* underline */,
+                                                           const boost::optional<bool> & /* doubleunderline */, const boost::optional<bool> & /* strikeout */, const boost::optional<bool> & /* doublestrikeout */,
+                                                           const boost::optional<bool> & /* allcaps */, const boost::optional<bool> & /* initcaps */, const boost::optional<bool> & /* smallcaps */,
+                                                           const boost::optional<bool> & /* superscript */, const boost::optional<bool> & /* subscript */)
 {
 }
 
 void libvisio::VSDStylesCollector::collectTextBlock(unsigned level, const boost::optional<double> & /* leftMargin */,
-    const boost::optional<double> & /* rightMargin */, const boost::optional<double> & /* topMargin */, const boost::optional<double> & /* bottomMargin */,
-    const boost::optional<unsigned char> & /* verticalAlign */, const boost::optional<bool> & /* isBgFilled */, const boost::optional<Colour> & /* bgColour */,
-    const boost::optional<double> & /* defaultTabStop */, const boost::optional<unsigned char> & /* textDirection */)
+                                                    const boost::optional<double> & /* rightMargin */, const boost::optional<double> & /* topMargin */, const boost::optional<double> & /* bottomMargin */,
+                                                    const boost::optional<unsigned char> & /* verticalAlign */, const boost::optional<bool> & /* isBgFilled */, const boost::optional<Colour> & /* bgColour */,
+                                                    const boost::optional<double> & /* defaultTabStop */, const boost::optional<unsigned char> & /* textDirection */)
 {
   _handleLevelChange(level);
 }
 
-void libvisio::VSDStylesCollector::collectName(unsigned /*id*/, unsigned level, const ::WPXBinaryData & /*name*/, TextFormat /*format*/)
+void libvisio::VSDStylesCollector::collectName(unsigned /*id*/, unsigned level, const librevenge::RVNGBinaryData & /*name*/, TextFormat /*format*/)
 {
   _handleLevelChange(level);
 }
@@ -333,48 +318,57 @@ void libvisio::VSDStylesCollector::collectStyleSheet(unsigned /* id */, unsigned
 }
 
 void libvisio::VSDStylesCollector::collectLineStyle(unsigned level, const boost::optional<double> & /* strokeWidth */, const boost::optional<Colour> & /* c */,
-    const boost::optional<unsigned char> & /* linePattern */, const boost::optional<unsigned char> & /* startMarker */, const boost::optional<unsigned char> & /* endMarker */,
-    const boost::optional<unsigned char> & /* lineCap */)
+                                                    const boost::optional<unsigned char> & /* linePattern */, const boost::optional<unsigned char> & /* startMarker */, const boost::optional<unsigned char> & /* endMarker */,
+                                                    const boost::optional<unsigned char> & /* lineCap */)
 {
   _handleLevelChange(level);
 }
 
 void libvisio::VSDStylesCollector::collectFillStyle(unsigned level, const boost::optional<Colour> & /* colourFG */, const boost::optional<Colour> & /* colourBG */,
-    const boost::optional<unsigned char> & /* fillPattern */, const boost::optional<double> & /* fillFGTransparency */, const boost::optional<double> & /* fillBGTransparency */,
-    const boost::optional<unsigned char> & /* shadowPattern */, const boost::optional<Colour> & /* shfgc */, const boost::optional<double> & /* shadowOffsetX */,
-    const boost::optional<double> & /* shadowOffsetY */)
+                                                    const boost::optional<unsigned char> & /* fillPattern */, const boost::optional<double> & /* fillFGTransparency */, const boost::optional<double> & /* fillBGTransparency */,
+                                                    const boost::optional<unsigned char> & /* shadowPattern */, const boost::optional<Colour> & /* shfgc */, const boost::optional<double> & /* shadowOffsetX */,
+                                                    const boost::optional<double> & /* shadowOffsetY */)
 {
   _handleLevelChange(level);
 }
 
 void libvisio::VSDStylesCollector::collectFillStyle(unsigned level, const boost::optional<Colour> & /* colourFG */, const boost::optional<Colour> & /* colourBG */,
-    const boost::optional<unsigned char> & /* fillPattern */, const boost::optional<double> & /* fillFGTransparency */, const boost::optional<double> & /* fillBGTransparency */,
-    const boost::optional<unsigned char> & /* shadowPattern */, const boost::optional<Colour> & /* shfgc */)
+                                                    const boost::optional<unsigned char> & /* fillPattern */, const boost::optional<double> & /* fillFGTransparency */, const boost::optional<double> & /* fillBGTransparency */,
+                                                    const boost::optional<unsigned char> & /* shadowPattern */, const boost::optional<Colour> & /* shfgc */)
 {
   _handleLevelChange(level);
 }
 
 void libvisio::VSDStylesCollector::collectCharIXStyle(unsigned /* id */, unsigned level, unsigned /* charCount */, const boost::optional<VSDName> & /* font */,
-    const boost::optional<Colour> & /* fontColour */, const boost::optional<double> & /* fontSize */, const boost::optional<bool> & /* bold */, const boost::optional<bool> & /* italic */,
-    const boost::optional<bool> & /* underline */, const boost::optional<bool> & /* doubleunderline */, const boost::optional<bool> & /* strikeout */,
-    const boost::optional<bool> & /* doublestrikeout */, const boost::optional<bool> & /* allcaps */, const boost::optional<bool> & /* initcaps */, const boost::optional<bool> & /* smallcaps */,
-    const boost::optional<bool> & /* superscript */, const boost::optional<bool> & /* subscript */)
+                                                      const boost::optional<Colour> & /* fontColour */, const boost::optional<double> & /* fontSize */, const boost::optional<bool> & /* bold */, const boost::optional<bool> & /* italic */,
+                                                      const boost::optional<bool> & /* underline */, const boost::optional<bool> & /* doubleunderline */, const boost::optional<bool> & /* strikeout */,
+                                                      const boost::optional<bool> & /* doublestrikeout */, const boost::optional<bool> & /* allcaps */, const boost::optional<bool> & /* initcaps */, const boost::optional<bool> & /* smallcaps */,
+                                                      const boost::optional<bool> & /* superscript */, const boost::optional<bool> & /* subscript */)
 {
   _handleLevelChange(level);
 }
 
 void libvisio::VSDStylesCollector::collectParaIXStyle(unsigned /* id */, unsigned level, unsigned /* charCount */, const boost::optional<double> & /* indFirst */,
-    const boost::optional<double> & /* indLeft */, const boost::optional<double> & /* indRight */, const boost::optional<double> & /* spLine */, const boost::optional<double> & /* spBefore */,
-    const boost::optional<double> & /* spAfter */, const boost::optional<unsigned char> & /* align */, const boost::optional<unsigned> & /* flags */)
+                                                      const boost::optional<double> & /* indLeft */, const boost::optional<double> & /* indRight */,
+                                                      const boost::optional<double> & /* spLine */, const boost::optional<double> & /* spBefore */,
+                                                      const boost::optional<double> & /* spAfter */, const boost::optional<unsigned char> & /* align */,
+                                                      const boost::optional<unsigned> & /* flags */)
 {
   _handleLevelChange(level);
 }
 
 
 void libvisio::VSDStylesCollector::collectTextBlockStyle(unsigned level, const boost::optional<double> & /* leftMargin */, const boost::optional<double> & /* rightMargin */,
-    const boost::optional<double> & /* topMargin */, const boost::optional<double> & /* bottomMargin */, const boost::optional<unsigned char> & /* verticalAlign */,
-    const boost::optional<bool> & /* isBgFilled */, const boost::optional<Colour> & /* bgColour */, const boost::optional<double> & /* defaultTabStop */,
-    const boost::optional<unsigned char> & /* textDirection */)
+                                                         const boost::optional<double> & /* topMargin */, const boost::optional<double> & /* bottomMargin */,
+                                                         const boost::optional<unsigned char> & /* verticalAlign */, const boost::optional<bool> & /* isBgFilled */,
+                                                         const boost::optional<Colour> & /* bgColour */, const boost::optional<double> & /* defaultTabStop */,
+                                                         const boost::optional<unsigned char> & /* textDirection */)
+{
+  _handleLevelChange(level);
+}
+
+void libvisio::VSDStylesCollector::collectStyleThemeReference(unsigned level, const boost::optional<long> & /* lineColour */, const boost::optional<long> & /* fillColour */,
+                                                              const boost::optional<long> & /* shadowColour */, const boost::optional<long> & /* fontColour */)
 {
   _handleLevelChange(level);
 }

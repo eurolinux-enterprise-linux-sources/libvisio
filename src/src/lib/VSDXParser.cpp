@@ -1,44 +1,24 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* libvisio
- * Version: MPL 1.1 / GPLv2+ / LGPLv2+
+/*
+ * This file is part of the libvisio project.
  *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License or as specified alternatively below. You may obtain a copy of
- * the License at http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * Major Contributor(s):
- * Copyright (C) 2012 Fridrich Strba <fridrich.strba@bluewin.ch>
- *
- *
- * All Rights Reserved.
- *
- * For minor contributions see the git repository.
- *
- * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPLv2+"), or
- * the GNU Lesser General Public License Version 2 or later (the "LGPLv2+"),
- * in which case the provisions of the GPLv2+ or the LGPLv2+ are applicable
- * instead of those above.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 #include <string.h>
 #include <libxml/xmlIO.h>
 #include <libxml/xmlstring.h>
-#include <libwpd-stream/libwpd-stream.h>
+#include <librevenge-stream/librevenge-stream.h>
 #include <boost/algorithm/string.hpp>
 #include "VSDXParser.h"
 #include "libvisio_utils.h"
 #include "VSDContentCollector.h"
 #include "VSDStylesCollector.h"
-#include "VSDZipStream.h"
 #include "VSDXMLHelper.h"
 #include "VSDXMLTokenMap.h"
+#include "VSDXMetaData.h"
 
 namespace
 {
@@ -66,7 +46,7 @@ std::string getRelationshipsForTarget(const char *target)
 } // anonymous namespace
 
 
-libvisio::VSDXParser::VSDXParser(WPXInputStream *input, libwpg::WPGPaintInterface *painter)
+libvisio::VSDXParser::VSDXParser(librevenge::RVNGInputStream *input, librevenge::RVNGDrawingInterface *painter)
   : VSDXMLParserBase(),
     m_input(input),
     m_painter(painter),
@@ -74,31 +54,21 @@ libvisio::VSDXParser::VSDXParser(WPXInputStream *input, libwpg::WPGPaintInterfac
     m_rels(0),
     m_currentTheme()
 {
-  input->seek(0, WPX_SEEK_CUR);
-  m_input = new VSDZipStream(input);
-  if (!m_input || !m_input->isOLEStream())
-  {
-    if (m_input)
-      delete m_input;
-    m_input = 0;
-  }
 }
 
 libvisio::VSDXParser::~VSDXParser()
 {
-  if (m_input)
-    delete m_input;
 }
 
 bool libvisio::VSDXParser::parseMain()
 {
-  if (!m_input)
+  if (!m_input || !m_input->isStructured())
     return false;
 
-  WPXInputStream *tmpInput = 0;
+  librevenge::RVNGInputStream *tmpInput = 0;
   try
   {
-    tmpInput = m_input->getDocumentOLEStream("_rels/.rels");
+    tmpInput = m_input->getSubStreamByName("_rels/.rels");
     if (!tmpInput)
       return false;
 
@@ -123,6 +93,10 @@ bool libvisio::VSDXParser::parseMain()
 
     VSDContentCollector contentCollector(m_painter, groupXFormsSequence, groupMembershipsSequence, documentPageShapeOrders, styles, m_stencils);
     m_collector = &contentCollector;
+    const libvisio::VSDXRelationship *metaDataRel = rootRels.getRelationshipByType("http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties");
+    if (metaDataRel)
+      parseMetaData(m_input, metaDataRel->getTarget().c_str());
+
     if (!parseDocument(m_input, rel->getTarget().c_str()))
       return false;
 
@@ -142,19 +116,19 @@ bool libvisio::VSDXParser::extractStencils()
   return parseMain();
 }
 
-bool libvisio::VSDXParser::parseDocument(WPXInputStream *input, const char *name)
+bool libvisio::VSDXParser::parseDocument(librevenge::RVNGInputStream *input, const char *name)
 {
   if (!input)
     return false;
-  input->seek(0, WPX_SEEK_SET);
-  if (!input->isOLEStream())
+  input->seek(0, librevenge::RVNG_SEEK_SET);
+  if (!input->isStructured())
     return false;
-  WPXInputStream *stream = input->getDocumentOLEStream(name);
-  input->seek(0, WPX_SEEK_SET);
+  librevenge::RVNGInputStream *stream = input->getSubStreamByName(name);
+  input->seek(0, librevenge::RVNG_SEEK_SET);
   if (!stream)
     return false;
-  WPXInputStream *relStream = input->getDocumentOLEStream(getRelationshipsForTarget(name).c_str());
-  input->seek(0, WPX_SEEK_SET);
+  librevenge::RVNGInputStream *relStream = input->getSubStreamByName(getRelationshipsForTarget(name).c_str());
+  input->seek(0, librevenge::RVNG_SEEK_SET);
   VSDXRelationships rels(relStream);
   if (relStream)
     delete relStream;
@@ -167,7 +141,7 @@ bool libvisio::VSDXParser::parseDocument(WPXInputStream *input, const char *name
     {
       VSD_DEBUG_MSG(("Could not parse theme\n"));
     }
-    input->seek(0, WPX_SEEK_SET);
+    input->seek(0, librevenge::RVNG_SEEK_SET);
   }
 
   processXmlDocument(stream, rels);
@@ -179,7 +153,7 @@ bool libvisio::VSDXParser::parseDocument(WPXInputStream *input, const char *name
     {
       VSD_DEBUG_MSG(("Could not parse masters\n"));
     }
-    input->seek(0, WPX_SEEK_SET);
+    input->seek(0, librevenge::RVNG_SEEK_SET);
   }
 
   rel = rels.getRelationshipByType("http://schemas.microsoft.com/visio/2010/relationships/pages");
@@ -189,7 +163,7 @@ bool libvisio::VSDXParser::parseDocument(WPXInputStream *input, const char *name
     {
       VSD_DEBUG_MSG(("Could not parse pages\n"));
     }
-    input->seek(0, WPX_SEEK_SET);
+    input->seek(0, librevenge::RVNG_SEEK_SET);
   }
 
   if (stream)
@@ -197,18 +171,18 @@ bool libvisio::VSDXParser::parseDocument(WPXInputStream *input, const char *name
   return true;
 }
 
-bool libvisio::VSDXParser::parseMasters(WPXInputStream *input, const char *name)
+bool libvisio::VSDXParser::parseMasters(librevenge::RVNGInputStream *input, const char *name)
 {
   if (!input)
     return false;
-  input->seek(0, WPX_SEEK_SET);
-  if (!input->isOLEStream())
+  input->seek(0, librevenge::RVNG_SEEK_SET);
+  if (!input->isStructured())
     return false;
-  WPXInputStream *stream = input->getDocumentOLEStream(name);
+  librevenge::RVNGInputStream *stream = input->getSubStreamByName(name);
   if (!stream)
     return false;
-  WPXInputStream *relStream = input->getDocumentOLEStream(getRelationshipsForTarget(name).c_str());
-  input->seek(0, WPX_SEEK_SET);
+  librevenge::RVNGInputStream *relStream = input->getSubStreamByName(getRelationshipsForTarget(name).c_str());
+  input->seek(0, librevenge::RVNG_SEEK_SET);
   VSDXRelationships rels(relStream);
   if (relStream)
     delete relStream;
@@ -220,18 +194,18 @@ bool libvisio::VSDXParser::parseMasters(WPXInputStream *input, const char *name)
   return true;
 }
 
-bool libvisio::VSDXParser::parseMaster(WPXInputStream *input, const char *name)
+bool libvisio::VSDXParser::parseMaster(librevenge::RVNGInputStream *input, const char *name)
 {
   if (!input)
     return false;
-  input->seek(0, WPX_SEEK_SET);
-  if (!input->isOLEStream())
+  input->seek(0, librevenge::RVNG_SEEK_SET);
+  if (!input->isStructured())
     return false;
-  WPXInputStream *stream = input->getDocumentOLEStream(name);
+  librevenge::RVNGInputStream *stream = input->getSubStreamByName(name);
   if (!stream)
     return false;
-  WPXInputStream *relStream = input->getDocumentOLEStream(getRelationshipsForTarget(name).c_str());
-  input->seek(0, WPX_SEEK_SET);
+  librevenge::RVNGInputStream *relStream = input->getSubStreamByName(getRelationshipsForTarget(name).c_str());
+  input->seek(0, librevenge::RVNG_SEEK_SET);
   VSDXRelationships rels(relStream);
   if (relStream)
     delete relStream;
@@ -243,18 +217,18 @@ bool libvisio::VSDXParser::parseMaster(WPXInputStream *input, const char *name)
   return true;
 }
 
-bool libvisio::VSDXParser::parsePages(WPXInputStream *input, const char *name)
+bool libvisio::VSDXParser::parsePages(librevenge::RVNGInputStream *input, const char *name)
 {
   if (!input)
     return false;
-  input->seek(0, WPX_SEEK_SET);
-  if (!input->isOLEStream())
+  input->seek(0, librevenge::RVNG_SEEK_SET);
+  if (!input->isStructured())
     return false;
-  WPXInputStream *stream = input->getDocumentOLEStream(name);
+  librevenge::RVNGInputStream *stream = input->getSubStreamByName(name);
   if (!stream)
     return false;
-  WPXInputStream *relStream = input->getDocumentOLEStream(getRelationshipsForTarget(name).c_str());
-  input->seek(0, WPX_SEEK_SET);
+  librevenge::RVNGInputStream *relStream = input->getSubStreamByName(getRelationshipsForTarget(name).c_str());
+  input->seek(0, librevenge::RVNG_SEEK_SET);
   VSDXRelationships rels(relStream);
   if (relStream)
     delete relStream;
@@ -266,18 +240,18 @@ bool libvisio::VSDXParser::parsePages(WPXInputStream *input, const char *name)
   return true;
 }
 
-bool libvisio::VSDXParser::parsePage(WPXInputStream *input, const char *name)
+bool libvisio::VSDXParser::parsePage(librevenge::RVNGInputStream *input, const char *name)
 {
   if (!input)
     return false;
-  input->seek(0, WPX_SEEK_SET);
-  if (!input->isOLEStream())
+  input->seek(0, librevenge::RVNG_SEEK_SET);
+  if (!input->isStructured())
     return false;
-  WPXInputStream *stream = input->getDocumentOLEStream(name);
+  librevenge::RVNGInputStream *stream = input->getSubStreamByName(name);
   if (!stream)
     return false;
-  WPXInputStream *relStream = input->getDocumentOLEStream(getRelationshipsForTarget(name).c_str());
-  input->seek(0, WPX_SEEK_SET);
+  librevenge::RVNGInputStream *relStream = input->getSubStreamByName(getRelationshipsForTarget(name).c_str());
+  input->seek(0, librevenge::RVNG_SEEK_SET);
   VSDXRelationships rels(relStream);
   if (relStream)
     delete relStream;
@@ -289,14 +263,14 @@ bool libvisio::VSDXParser::parsePage(WPXInputStream *input, const char *name)
   return true;
 }
 
-bool libvisio::VSDXParser::parseTheme(WPXInputStream *input, const char *name)
+bool libvisio::VSDXParser::parseTheme(librevenge::RVNGInputStream *input, const char *name)
 {
   if (!input)
     return false;
-  input->seek(0, WPX_SEEK_SET);
-  if (!input->isOLEStream())
+  input->seek(0, librevenge::RVNG_SEEK_SET);
+  if (!input->isStructured())
     return false;
-  WPXInputStream *stream = input->getDocumentOLEStream(name);
+  librevenge::RVNGInputStream *stream = input->getSubStreamByName(name);
   if (!stream)
     return false;
 
@@ -306,7 +280,26 @@ bool libvisio::VSDXParser::parseTheme(WPXInputStream *input, const char *name)
   return true;
 }
 
-void libvisio::VSDXParser::processXmlDocument(WPXInputStream *input, VSDXRelationships &rels)
+bool libvisio::VSDXParser::parseMetaData(librevenge::RVNGInputStream *input, const char *name)
+{
+  if (!input)
+    return false;
+  input->seek(0, librevenge::RVNG_SEEK_SET);
+  if (!input->isStructured())
+    return false;
+  librevenge::RVNGInputStream *stream = input->getSubStreamByName(name);
+  if (!stream)
+    return false;
+
+  VSDXMetaData metaData;
+  metaData.parse(stream);
+  m_collector->collectMetaData(metaData.getMetaData());
+
+  delete stream;
+  return true;
+}
+
+void libvisio::VSDXParser::processXmlDocument(librevenge::RVNGInputStream *input, VSDXRelationships &rels)
 {
   if (!input)
     return;
@@ -510,7 +503,7 @@ void libvisio::VSDXParser::processXmlNode(xmlTextReaderPtr reader)
     {
       const xmlChar *name1 = xmlTextReaderConstName(reader);
       const xmlChar *value1 = xmlTextReaderConstValue(reader);
-      printf(" %s=\"%s\"", name1, value1);
+      fprintf(stderr, " %s=\"%s\"", name1, value1);
     }
   }
 
@@ -525,13 +518,13 @@ void libvisio::VSDXParser::processXmlNode(xmlTextReaderPtr reader)
 
 #define VSDX_DATA_READ_SIZE 4096UL
 
-void libvisio::VSDXParser::extractBinaryData(WPXInputStream *input, const char *name)
+void libvisio::VSDXParser::extractBinaryData(librevenge::RVNGInputStream *input, const char *name)
 {
   m_currentBinaryData.clear();
-  if (!input || !input->isOLEStream())
+  if (!input || !input->isStructured())
     return;
-  input->seek(0, WPX_SEEK_SET);
-  WPXInputStream *stream = input->getDocumentOLEStream(name);
+  input->seek(0, librevenge::RVNG_SEEK_SET);
+  librevenge::RVNGInputStream *stream = input->getSubStreamByName(name);
   if (!stream)
     return;
   while (true)
@@ -540,7 +533,7 @@ void libvisio::VSDXParser::extractBinaryData(WPXInputStream *input, const char *
     const unsigned char *buffer = stream->read(VSDX_DATA_READ_SIZE, numBytesRead);
     if (numBytesRead)
       m_currentBinaryData.append(buffer, numBytesRead);
-    if (stream->atEOS())
+    if (stream->isEnd())
       break;
   }
   delete stream;
@@ -688,7 +681,7 @@ void libvisio::VSDXParser::readFonts(xmlTextReaderPtr reader)
       xmlChar *name = xmlTextReaderGetAttribute(reader, BAD_CAST("NameU"));
       if (name)
       {
-        WPXBinaryData textStream(name, xmlStrlen(name));
+        librevenge::RVNGBinaryData textStream(name, xmlStrlen(name));
         m_fonts[idx] = VSDName(textStream, libvisio::VSD_TEXT_UTF8);
         xmlFree(name);
       }
@@ -852,6 +845,37 @@ void libvisio::VSDXParser::readStyleProperties(xmlTextReaderPtr reader)
       if (XML_READER_TYPE_ELEMENT == tokenType)
         readCharacter(reader);
       break;
+    case XML_QUICKSTYLELINECOLOR:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+      {
+        long tmpValue;
+        ret = readLongData(tmpValue, reader);
+        if (!strokeColour)
+          strokeColour = m_currentTheme.getThemeColour((unsigned)tmpValue);
+      }
+      break;
+    case XML_QUICKSTYLEFILLCOLOR:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+      {
+        long tmpValue;
+        ret = readLongData(tmpValue, reader);
+        if (!fillColourFG)
+          fillColourFG = m_currentTheme.getThemeColour((unsigned)tmpValue);
+        if (!fillColourBG)
+          fillColourBG = m_currentTheme.getThemeColour((unsigned)tmpValue);
+      }
+      break;
+    case XML_QUICKSTYLESHADOWCOLOR:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+      {
+        long tmpValue;
+        ret = readLongData(tmpValue, reader);
+        if (!shadowColourFG)
+          shadowColourFG = m_currentTheme.getThemeColour((unsigned)tmpValue);
+        if (!shadowColourBG)
+          shadowColourBG = m_currentTheme.getThemeColour((unsigned)tmpValue);
+      }
+      break;
     default:
       break;
     }
@@ -883,9 +907,9 @@ void libvisio::VSDXParser::readStyleProperties(xmlTextReaderPtr reader)
   {
     m_shape.m_lineStyle.override(VSDOptionalLineStyle(strokeWidth, strokeColour, linePattern, startMarker, endMarker, lineCap));
     m_shape.m_fillStyle.override(VSDOptionalFillStyle(fillColourFG, fillColourBG, fillPattern, fillFGTransparency, fillBGTransparency, shadowColourFG,
-                                 shadowPattern, shadowOffsetX, shadowOffsetY));
+                                                      shadowPattern, shadowOffsetX, shadowOffsetY));
     m_shape.m_textBlockStyle.override(VSDOptionalTextBlockStyle(leftMargin, rightMargin, topMargin, bottomMargin, verticalAlign, !!bgClrId, bgColour,
-                                      defaultTabStop, textDirection));
+                                                                defaultTabStop, textDirection));
   }
 }
 
@@ -1004,6 +1028,34 @@ void libvisio::VSDXParser::readShapeProperties(xmlTextReaderPtr reader)
         if (!m_shape.m_txtxform)
           m_shape.m_txtxform = new XForm();
         ret = readDoubleData(m_shape.m_txtxform->angle, reader);
+      }
+    case XML_BEGINX:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+      {
+        if (!m_shape.m_xform1d)
+          m_shape.m_xform1d = new XForm1D();
+        ret = readDoubleData(m_shape.m_xform1d->beginX, reader);
+      }
+    case XML_BEGINY:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+      {
+        if (!m_shape.m_xform1d)
+          m_shape.m_xform1d = new XForm1D();
+        ret = readDoubleData(m_shape.m_xform1d->beginY, reader);
+      }
+    case XML_ENDX:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+      {
+        if (!m_shape.m_xform1d)
+          m_shape.m_xform1d = new XForm1D();
+        ret = readDoubleData(m_shape.m_xform1d->endX, reader);
+      }
+    case XML_ENDY:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+      {
+        if (!m_shape.m_xform1d)
+          m_shape.m_xform1d = new XForm1D();
+        ret = readDoubleData(m_shape.m_xform1d->endY, reader);
       }
       break;
     case XML_IMGOFFSETX:
@@ -1169,6 +1221,35 @@ void libvisio::VSDXParser::readShapeProperties(xmlTextReaderPtr reader)
     case XML_HIDETEXT:
       if (XML_READER_TYPE_ELEMENT == tokenType)
         ret = readBoolData(m_shape.m_misc.m_hideText, reader);
+      break;
+    case XML_QUICKSTYLELINECOLOR:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+      {
+        long tmpValue;
+        ret = readLongData(tmpValue, reader);
+        if (!m_shape.m_lineStyle.colour)
+          m_shape.m_lineStyle.colour = m_currentTheme.getThemeColour((unsigned)tmpValue);
+      }
+      break;
+    case XML_QUICKSTYLEFILLCOLOR:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+      {
+        long tmpValue;
+        ret = readLongData(tmpValue, reader);
+        if (!m_shape.m_fillStyle.fgColour)
+          m_shape.m_fillStyle.fgColour = m_currentTheme.getThemeColour((unsigned)tmpValue);
+        if (!m_shape.m_fillStyle.bgColour)
+          m_shape.m_fillStyle.bgColour = m_currentTheme.getThemeColour((unsigned)tmpValue);
+      }
+      break;
+    case XML_QUICKSTYLESHADOWCOLOR:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+      {
+        long tmpValue;
+        ret = readLongData(tmpValue, reader);
+        if (!m_shape.m_fillStyle.shadowFgColour)
+          m_shape.m_fillStyle.shadowFgColour = m_currentTheme.getThemeColour((unsigned)tmpValue);
+      }
       break;
     default:
       if (XML_SECTION == tokenClass && XML_READER_TYPE_ELEMENT == tokenType)

@@ -1,31 +1,10 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* libvisio
- * Version: MPL 1.1 / GPLv2+ / LGPLv2+
+/*
+ * This file is part of the libvisio project.
  *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License or as specified alternatively below. You may obtain a copy of
- * the License at http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * Major Contributor(s):
- * Copyright (C) 2011 Fridrich Strba <fridrich.strba@bluewin.ch>
- * Copyright (C) 2011 Eilidh McAdam <tibbylickle@gmail.com>
- *
- *
- * All Rights Reserved.
- *
- * For minor contributions see the git repository.
- *
- * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPLv2+"), or
- * the GNU Lesser General Public License Version 2 or later (the "LGPLv2+"),
- * in which case the provisions of the GPLv2+ or the LGPLv2+ are applicable
- * instead of those above.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 #include "VSDStencils.h"
@@ -34,9 +13,10 @@
 libvisio::VSDShape::VSDShape()
   : m_geometries(), m_shapeList(), m_fields(), m_foreign(0), m_parent(0), m_masterPage(MINUS_ONE),
     m_masterShape(MINUS_ONE), m_shapeId(MINUS_ONE), m_lineStyleId(MINUS_ONE), m_fillStyleId(MINUS_ONE),
-    m_textStyleId(MINUS_ONE), m_lineStyle(), m_fillStyle(), m_textBlockStyle(), m_charStyle(), m_charList(),
-    m_paraStyle(), m_paraList(), m_text(), m_names(), m_textFormat(libvisio::VSD_TEXT_UTF16),
-    m_nurbsData(), m_polylineData(), m_xform(), m_txtxform(0), m_misc()
+    m_textStyleId(MINUS_ONE), m_lineStyle(), m_fillStyle(), m_textBlockStyle(), m_charStyle(),
+    m_themeRef(), m_charList(), m_paraStyle(), m_paraList(), m_text(), m_names(),
+    m_textFormat(libvisio::VSD_TEXT_UTF16), m_nurbsData(), m_polylineData(), m_xform(), m_txtxform(0),
+    m_xform1d(0), m_misc()
 {
 }
 
@@ -46,10 +26,11 @@ libvisio::VSDShape::VSDShape(const libvisio::VSDShape &shape)
     m_masterPage(shape.m_masterPage), m_masterShape(shape.m_masterShape), m_shapeId(shape.m_shapeId),
     m_lineStyleId(shape.m_lineStyleId), m_fillStyleId(shape.m_fillStyleId), m_textStyleId(shape.m_textStyleId),
     m_lineStyle(shape.m_lineStyle), m_fillStyle(shape.m_fillStyle), m_textBlockStyle(shape.m_textBlockStyle),
-    m_charStyle(shape.m_charStyle), m_charList(shape.m_charList), m_paraStyle(shape.m_paraStyle),
-    m_paraList(shape.m_paraList), m_text(shape.m_text), m_names(shape.m_names),
+    m_charStyle(shape.m_charStyle), m_themeRef(shape.m_themeRef), m_charList(shape.m_charList),
+    m_paraStyle(shape.m_paraStyle), m_paraList(shape.m_paraList), m_text(shape.m_text), m_names(shape.m_names),
     m_textFormat(shape.m_textFormat), m_nurbsData(shape.m_nurbsData), m_polylineData(shape.m_polylineData),
-    m_xform(shape.m_xform), m_txtxform(shape.m_txtxform ? new XForm(*(shape.m_txtxform)) : 0), m_misc(shape.m_misc)
+    m_xform(shape.m_xform), m_txtxform(shape.m_txtxform ? new XForm(*(shape.m_txtxform)) : 0),
+    m_xform1d(shape.m_xform1d ? new XForm1D(*(shape.m_xform1d)) : 0), m_misc(shape.m_misc)
 {
 }
 
@@ -79,6 +60,7 @@ libvisio::VSDShape &libvisio::VSDShape::operator=(const libvisio::VSDShape &shap
     m_fillStyle = shape.m_fillStyle;
     m_textBlockStyle = shape.m_textBlockStyle;
     m_charStyle = shape.m_charStyle;
+    m_themeRef = shape.m_themeRef;
     m_charList = shape.m_charList;
     m_paraStyle = shape.m_paraStyle;
     m_paraList = shape.m_paraList;
@@ -91,6 +73,9 @@ libvisio::VSDShape &libvisio::VSDShape::operator=(const libvisio::VSDShape &shap
     if (m_txtxform)
       delete m_txtxform;
     m_txtxform = shape.m_txtxform ? new XForm(*(shape.m_txtxform)) : 0;
+    if (m_xform1d)
+      delete m_xform1d;
+    m_xform1d = shape.m_xform1d ? new XForm1D(*(shape.m_xform1d)) : 0;
     m_misc = shape.m_misc;
   }
   return *this;
@@ -104,6 +89,9 @@ void libvisio::VSDShape::clear()
   if (m_txtxform)
     delete m_txtxform;
   m_txtxform = 0;
+  if (m_xform1d)
+    delete m_xform1d;
+  m_xform1d = 0;
 
   m_geometries.clear();
   m_shapeList.clear();
@@ -112,6 +100,7 @@ void libvisio::VSDShape::clear()
   m_fillStyle = VSDOptionalFillStyle();
   m_textBlockStyle = VSDOptionalTextBlockStyle();
   m_charStyle = VSDOptionalCharStyle();
+  m_themeRef = VSDOptionalThemeReference();
   m_charList.clear();
   m_paraStyle = VSDOptionalParaStyle();
   m_paraList.clear();
@@ -213,11 +202,6 @@ const libvisio::VSDShape *libvisio::VSDStencils::getStencilShape(unsigned pageId
   if (MINUS_ONE == shapeId)
     shapeId = tmpStencil->m_firstShapeId;
   return tmpStencil->getStencilShape(shapeId);
-}
-
-void libvisio::VSDStencils::clear()
-{
-  m_stencils.clear();
 }
 
 /* vim:set shiftwidth=2 softtabstop=2 expandtab: */

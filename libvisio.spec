@@ -1,33 +1,35 @@
-%global apiversion 0.0
+%global apiversion 0.1
 
 Name: libvisio
-Version: 0.0.31
-Release: 3%{?dist}
-Summary: A library providing ability to interpret and import visio diagrams
+Version: 0.1.1
+Release: 2%{?dist}
+Summary: A library for import of Microsoft Visio diagrams
 
-Group: System Environment/Libraries
-License: GPLv2+ or LGPLv2+ or MPLv1.1
-URL: http://www.freedesktop.org/wiki/Software/libvisio
-Source: http://dev-www.libreoffice.org/src/%{name}-%{version}.tar.xz
+License: MPLv2.0
+URL: http://wiki.documentfoundation.org/DLP/Libraries/libvisio
+Source: http://dev-www.libreoffice.org/src/%{name}/%{name}-%{version}.tar.xz
 
 BuildRequires: boost-devel
 BuildRequires: doxygen
 BuildRequires: gperf
-BuildRequires: libicu-devel
-BuildRequires: libwpd-devel
-BuildRequires: libwpg-devel
-BuildRequires: libxml2-devel
+BuildRequires: help2man
 BuildRequires: perl
-BuildRequires: zlib-devel
+BuildRequires: pkgconfig(cppunit)
+BuildRequires: pkgconfig(icu-i18n)
+BuildRequires: pkgconfig(librevenge-0.0)
+BuildRequires: pkgconfig(libxml-2.0)
+BuildRequires: pkgconfig(zlib)
+
+Patch0: 0001-add-missing-breaks.patch
+Patch1: 0001-define-more-needed-namespaces.patch
 
 %description
-Libvisio is library providing ability to interpret and import visio
-diagrams into various applications. You can find it being used in
-libreoffice.
+%{name} is library providing ability to interpret and import
+Microsoft Visio diagrams into various applications. You can find it
+being used in libreoffice.
 
 %package devel
 Summary: Development files for %{name}
-Group: Development/Libraries
 Requires: %{name}%{?_isa} = %{version}-%{release}
 
 %description devel
@@ -36,34 +38,37 @@ developing applications that use %{name}.
 
 %package doc
 Summary: Documentation of %{name} API
-Group: Documentation
 BuildArch: noarch
 
 %description doc
 The %{name}-doc package contains documentation files for %{name}.
 
 %package tools
-Summary: Tools to transform Visio diagrams into other formats
-Group: Applications/Publishing
+Summary: Tools to transform Microsoft Visio diagrams into other formats
 Requires: %{name}%{?_isa} = %{version}-%{release}
 
 %description tools
-Tools to transform Visio diagrams into other formats.
+Tools to transform Microsoft Visio diagrams into other formats.
 Currently supported: XHTML, raw, plain text.
 
-
 %prep
-%setup -q
-
+%autosetup -p1
 
 %build
-%configure --disable-static --disable-werror
+%configure --disable-static --disable-silent-rules
 sed -i \
     -e 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' \
     -e 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' \
     libtool
-make %{?_smp_mflags} V=1
+make %{?_smp_mflags}
 
+export LD_LIBRARY_PATH=`pwd`/src/lib/.libs${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+help2man -N -n 'debug the conversion library' -o vsd2raw.1 ./src/conv/raw/.libs/vsd2raw
+help2man -N -n 'convert Visio document into SVG' -o vsd2xhtml.1 ./src/conv/svg/.libs/vsd2xhtml
+help2man -N -n 'convert Visio document into plain text' -o vsd2text.1 ./src/conv/text/.libs/vsd2text
+help2man -N -n 'debug the conversion library' -o vss2raw.1 ./src/conv/raw/.libs/vss2raw
+help2man -N -n 'convert Visio stencil into SVG' -o vss2xhtml.1 ./src/conv/svg/.libs/vss2xhtml
+help2man -N -n 'convert Visio stencil into plain text' -o vss2text.1 ./src/conv/text/.libs/vss2text
 
 %install
 make install DESTDIR=%{buildroot}
@@ -71,17 +76,21 @@ rm -f %{buildroot}/%{_libdir}/*.la
 # rhbz#1001240 we install API docs directly from build
 rm -rf %{buildroot}/%{_docdir}/%{name}
 
+install -m 0755 -d %{buildroot}/%{_mandir}/man1
+install -m 0644 vsd2*.1 vss2*.1 %{buildroot}/%{_mandir}/man1
 
 %post -p /sbin/ldconfig
-
-
 %postun -p /sbin/ldconfig
 
+%check
+export LD_LIBRARY_PATH=%{buildroot}%{_libdir}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+# Workaround time formatting problem in the test
+export TZ='CET'
+make check %{?_smp_mflags}
 
 %files
 %doc AUTHORS COPYING.*
 %{_libdir}/%{name}-%{apiversion}.so.*
-
 
 %files devel
 %doc ChangeLog
@@ -89,11 +98,9 @@ rm -rf %{buildroot}/%{_docdir}/%{name}
 %{_libdir}/%{name}-%{apiversion}.so
 %{_libdir}/pkgconfig/%{name}-%{apiversion}.pc
 
-
 %files doc
 %doc COPYING.*
 %doc docs/doxygen/html
-
 
 %files tools
 %{_bindir}/vsd2raw
@@ -102,9 +109,20 @@ rm -rf %{buildroot}/%{_docdir}/%{name}
 %{_bindir}/vss2raw
 %{_bindir}/vss2text
 %{_bindir}/vss2xhtml
-
+%{_mandir}/man1/vsd2raw.1*
+%{_mandir}/man1/vsd2text.1*
+%{_mandir}/man1/vsd2xhtml.1*
+%{_mandir}/man1/vss2raw.1*
+%{_mandir}/man1/vss2text.1*
+%{_mandir}/man1/vss2xhtml.1*
 
 %changelog
+* Mon May 04 2015 David Tardon <dtardon@redhat.com> - 0.1.1-2
+- Related: rhbz#1207761 include some upstream fixes
+
+* Fri Apr 17 2015 David Tardon <dtardon@redhat.com> - 0.1.1-1
+- Resolves: rhbz#1207761 rebase to 0.1.1
+
 * Fri Jan 24 2014 Daniel Mach <dmach@redhat.com> - 0.0.31-3
 - Mass rebuild 2014-01-24
 

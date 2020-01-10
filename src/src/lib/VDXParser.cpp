@@ -1,47 +1,26 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* libvisio
- * Version: MPL 1.1 / GPLv2+ / LGPLv2+
+/*
+ * This file is part of the libvisio project.
  *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License or as specified alternatively below. You may obtain a copy of
- * the License at http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * Major Contributor(s):
- * Copyright (C) 2012 Fridrich Strba <fridrich.strba@bluewin.ch>
- *
- *
- * All Rights Reserved.
- *
- * For minor contributions see the git repository.
- *
- * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPLv2+"), or
- * the GNU Lesser General Public License Version 2 or later (the "LGPLv2+"),
- * in which case the provisions of the GPLv2+ or the LGPLv2+ are applicable
- * instead of those above.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 #include <string.h>
 #include <libxml/xmlIO.h>
 #include <libxml/xmlstring.h>
-#include <libwpd-stream/libwpd-stream.h>
+#include <librevenge-stream/librevenge-stream.h>
 #include <boost/algorithm/string.hpp>
 #include "VDXParser.h"
 #include "libvisio_utils.h"
 #include "VSDContentCollector.h"
 #include "VSDStylesCollector.h"
-#include "VSDZipStream.h"
 #include "VSDXMLHelper.h"
 #include "VSDXMLTokenMap.h"
 
 
-libvisio::VDXParser::VDXParser(WPXInputStream *input, libwpg::WPGPaintInterface *painter)
+libvisio::VDXParser::VDXParser(librevenge::RVNGInputStream *input, librevenge::RVNGDrawingInterface *painter)
   : VSDXMLParserBase(), m_input(input), m_painter(painter)
 {
 }
@@ -63,7 +42,7 @@ bool libvisio::VDXParser::parseMain()
 
     VSDStylesCollector stylesCollector(groupXFormsSequence, groupMembershipsSequence, documentPageShapeOrders);
     m_collector = &stylesCollector;
-    m_input->seek(0, WPX_SEEK_SET);
+    m_input->seek(0, librevenge::RVNG_SEEK_SET);
     if (!processXmlDocument(m_input))
       return false;
 
@@ -71,7 +50,7 @@ bool libvisio::VDXParser::parseMain()
 
     VSDContentCollector contentCollector(m_painter, groupXFormsSequence, groupMembershipsSequence, documentPageShapeOrders, styles, m_stencils);
     m_collector = &contentCollector;
-    m_input->seek(0, WPX_SEEK_SET);
+    m_input->seek(0, librevenge::RVNG_SEEK_SET);
     if (!processXmlDocument(m_input))
       return false;
 
@@ -89,7 +68,7 @@ bool libvisio::VDXParser::extractStencils()
   return parseMain();
 }
 
-bool libvisio::VDXParser::processXmlDocument(WPXInputStream *input)
+bool libvisio::VDXParser::processXmlDocument(librevenge::RVNGInputStream *input)
 {
   if (!input)
     return false;
@@ -279,6 +258,10 @@ void libvisio::VDXParser::processXmlNode(xmlTextReaderPtr reader)
     if (XML_READER_TYPE_ELEMENT == tokenType)
       readTxtXForm(reader);
     break;
+  case XML_XFORM1D:
+    if (XML_READER_TYPE_ELEMENT == tokenType)
+      readXForm1D(reader);
+    break;
   default:
     break;
   }
@@ -458,7 +441,7 @@ void libvisio::VDXParser::readFillAndShadow(xmlTextReaderPtr reader)
       VSD_DEBUG_MSG(("Found stencil fill\n"));
     }
     m_shape.m_fillStyle.override(VSDOptionalFillStyle(fillColourFG, fillColourBG, fillPattern, fillFGTransparency, fillBGTransparency,
-                                 shadowColourFG, shadowPattern, shadowOffsetX, shadowOffsetY));
+                                                      shadowColourFG, shadowPattern, shadowOffsetX, shadowOffsetY));
   }
 }
 
@@ -559,7 +542,7 @@ void libvisio::VDXParser::readTxtXForm(xmlTextReaderPtr reader)
     tokenId = getElementToken(reader);
     if (XML_TOKEN_INVALID == tokenId)
     {
-      VSD_DEBUG_MSG(("VDXParser::readXFormData: unknown token %s\n", xmlTextReaderConstName(reader)));
+      VSD_DEBUG_MSG(("VDXParser::readTxtXForm: unknown token %s\n", xmlTextReaderConstName(reader)));
     }
     tokenType = xmlTextReaderNodeType(reader);
     switch (tokenId)
@@ -625,6 +608,61 @@ void libvisio::VDXParser::readTxtXForm(xmlTextReaderPtr reader)
     }
   }
   while ((XML_TEXTXFORM != tokenId || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+}
+
+void libvisio::VDXParser::readXForm1D(xmlTextReaderPtr reader)
+{
+  int ret = 1;
+  int tokenId = XML_TOKEN_INVALID;
+  int tokenType = -1;
+  do
+  {
+    ret = xmlTextReaderRead(reader);
+    tokenId = getElementToken(reader);
+    if (XML_TOKEN_INVALID == tokenId)
+    {
+      VSD_DEBUG_MSG(("VDXParser::readXForm1D: unknown token %s\n", xmlTextReaderConstName(reader)));
+    }
+    tokenType = xmlTextReaderNodeType(reader);
+    switch (tokenId)
+    {
+    case XML_BEGINX:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+      {
+        if (!m_shape.m_xform1d)
+          m_shape.m_xform1d = new XForm1D();
+        ret = readDoubleData(m_shape.m_xform1d->beginX, reader);
+      }
+      break;
+    case XML_BEGINY:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+      {
+        if (!m_shape.m_xform1d)
+          m_shape.m_xform1d = new XForm1D();
+        ret = readDoubleData(m_shape.m_xform1d->beginY, reader);
+      }
+      break;
+    case XML_ENDX:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+      {
+        if (!m_shape.m_xform1d)
+          m_shape.m_xform1d = new XForm1D();
+        ret = readDoubleData(m_shape.m_xform1d->endX, reader);
+      }
+      break;
+    case XML_ENDY:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+      {
+        if (!m_shape.m_xform1d)
+          m_shape.m_xform1d = new XForm1D();
+        ret = readDoubleData(m_shape.m_xform1d->endY, reader);
+      }
+      break;
+    default:
+      break;
+    }
+  }
+  while ((XML_XFORM1D != tokenId || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
 }
 
 void libvisio::VDXParser::readPageProps(xmlTextReaderPtr reader)
@@ -715,7 +753,7 @@ void libvisio::VDXParser::readFonts(xmlTextReaderPtr reader)
       if (id && name)
       {
         unsigned idx = (unsigned)xmlStringToLong(id);
-        WPXBinaryData textStream(name, xmlStrlen(name));
+        librevenge::RVNGBinaryData textStream(name, xmlStrlen(name));
         m_fonts[idx] = VSDName(textStream, libvisio::VSD_TEXT_UTF8);
       }
       xmlFree(name);
@@ -804,7 +842,7 @@ void libvisio::VDXParser::readTextBlock(xmlTextReaderPtr reader)
                                        verticalAlign, !!bgClrId, bgColour, defaultTabStop, textDirection);
   else
     m_shape.m_textBlockStyle.override(VSDOptionalTextBlockStyle(leftMargin, rightMargin, topMargin, bottomMargin,
-                                      verticalAlign, !!bgClrId, bgColour, defaultTabStop, textDirection));
+                                                                verticalAlign, !!bgClrId, bgColour, defaultTabStop, textDirection));
 }
 
 xmlChar *libvisio::VDXParser::readStringData(xmlTextReaderPtr reader)
@@ -844,7 +882,7 @@ void libvisio::VDXParser::getBinaryData(xmlTextReaderPtr reader)
       if (!m_shape.m_foreign)
         m_shape.m_foreign = new ForeignData();
       m_shape.m_foreign->data.clear();
-      appendFromBase64(m_shape.m_foreign->data, data, xmlStrlen(data));
+      m_shape.m_foreign->data.appendBase64Data(librevenge::RVNGString((const char *)data));
     }
   }
 }

@@ -1,38 +1,16 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* libvisio
- * Version: MPL 1.1 / GPLv2+ / LGPLv2+
+/*
+ * This file is part of the libvisio project.
  *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License or as specified alternatively below. You may obtain a copy of
- * the License at http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * Major Contributor(s):
- * Copyright (C) 2011 Fridrich Strba <fridrich.strba@bluewin.ch>
- * Copyright (C) 2011 Eilidh McAdam <tibbylickle@gmail.com>
- *
- *
- * All Rights Reserved.
- *
- * For minor contributions see the git repository.
- *
- * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPLv2+"), or
- * the GNU Lesser General Public License Version 2 or later (the "LGPLv2+"),
- * in which case the provisions of the GPLv2+ or the LGPLv2+ are applicable
- * instead of those above.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 #include <string.h> // for memcpy
 #include <stack>
 #include <boost/spirit/include/classic.hpp>
 #include <unicode/ucnv.h>
-#include <unicode/utypes.h>
 #include <unicode/utf8.h>
 
 #include "VSDContentCollector.h"
@@ -54,29 +32,8 @@ static unsigned bitmapId = 0;
 
 #define SURROGATE_VALUE(h,l) (((h) - 0xd800) * 0x400 + (l) - 0xdc00 + 0x10000)
 
-namespace
-{
-
-static void _appendUCS4(WPXString &text, UChar32 ucs4Character)
-{
-  // Convert carriage returns to new line characters
-  // Writerperfect/LibreOffice will replace them by <text:line-break>
-  if (ucs4Character == (UChar32) 0x0d || ucs4Character == (UChar32) 0x0e)
-    ucs4Character = (UChar32) '\n';
-
-  unsigned char outbuf[U8_MAX_LENGTH+1];
-  int i = 0;
-  U8_APPEND_UNSAFE(&outbuf[0], i, ucs4Character);
-  outbuf[i] = 0;
-
-  text.append((char *)outbuf);
-}
-
-} // anonymous namespace
-
-
 libvisio::VSDContentCollector::VSDContentCollector(
-  libwpg::WPGPaintInterface *painter,
+  librevenge::RVNGDrawingInterface *painter,
   std::vector<std::map<unsigned, XForm> > &groupXFormsSequence,
   std::vector<std::map<unsigned, unsigned> > &groupMembershipsSequence,
   std::vector<std::list<unsigned> > &documentPageShapeOrders,
@@ -96,8 +53,8 @@ libvisio::VSDContentCollector::VSDContentCollector(
   m_pageOutputDrawing(), m_pageOutputText(), m_documentPageShapeOrders(documentPageShapeOrders),
   m_pageShapeOrder(m_documentPageShapeOrders.begin()), m_isFirstGeometry(true), m_NURBSData(), m_polylineData(),
   m_textStream(), m_names(), m_stencilNames(), m_fields(), m_stencilFields(), m_fieldIndex(0),
-  m_textFormat(VSD_TEXT_ANSI), m_charFormats(), m_paraFormats(), m_lineStyle(), m_fillStyle(),
-  m_textBlockStyle(), m_defaultCharStyle(), m_defaultParaStyle(), m_currentStyleSheet(0), m_styles(styles),
+  m_textFormat(VSD_TEXT_ANSI), m_charFormats(), m_paraFormats(), m_lineStyle(), m_fillStyle(), m_textBlockStyle(),
+  m_themeReference(), m_defaultCharStyle(), m_defaultParaStyle(), m_currentStyleSheet(0), m_styles(styles),
   m_stencils(stencils), m_stencilShape(0), m_isStencilStarted(false), m_currentGeometryCount(0),
   m_backgroundPageID(MINUS_ONE), m_currentPageID(0), m_currentPage(), m_pages(),
   m_splineControlPoints(), m_splineKnotVector(), m_splineX(0.0), m_splineY(0.0),
@@ -219,16 +176,16 @@ void libvisio::VSDContentCollector::_flushShape()
     numPathElements++;
   if (m_lineStyle.pattern && !m_currentLineGeometry.empty())
     numPathElements++;
-  if (m_currentForeignData.size() && m_currentForeignProps["libwpg:mime-type"] && m_foreignWidth != 0.0 && m_foreignHeight != 0.0)
+  if (m_currentForeignData.size() && m_currentForeignProps["librevenge:mime-type"] && m_foreignWidth != 0.0 && m_foreignHeight != 0.0)
     numForeignElements++;
   if (m_textStream.size())
     numTextElements++;
 
   if (numPathElements+numForeignElements+numTextElements > 1)
-    m_shapeOutputDrawing->addStartLayer(WPXPropertyList());
+    m_shapeOutputDrawing->addStartLayer(librevenge::RVNGPropertyList());
 
   if (numPathElements > 1 && (numForeignElements || numTextElements))
-    m_shapeOutputDrawing->addStartLayer(WPXPropertyList());
+    m_shapeOutputDrawing->addStartLayer(librevenge::RVNGPropertyList());
   _flushCurrentPath();
   if (numPathElements > 1 && (numForeignElements || numTextElements))
     m_shapeOutputDrawing->addEndLayer();
@@ -248,15 +205,15 @@ void libvisio::VSDContentCollector::_flushShape()
 
 void libvisio::VSDContentCollector::_flushCurrentPath()
 {
-  WPXPropertyList styleProps;
+  librevenge::RVNGPropertyList styleProps;
   _lineProperties(m_lineStyle, styleProps);
   _fillAndShadowProperties(m_fillStyle, styleProps);
-  WPXPropertyList fillPathProps(styleProps);
+  librevenge::RVNGPropertyList fillPathProps(styleProps);
   fillPathProps.insert("draw:stroke", "none");
-  WPXPropertyList linePathProps(styleProps);
+  librevenge::RVNGPropertyList linePathProps(styleProps);
   linePathProps.insert("draw:fill", "none");
 
-  std::vector<WPXPropertyList> tmpPath;
+  std::vector<librevenge::RVNGPropertyList> tmpPath;
   if (m_fillStyle.pattern && !m_currentFillGeometry.empty())
   {
     bool firstPoint = true;
@@ -268,16 +225,16 @@ void libvisio::VSDContentCollector::_flushCurrentPath()
         firstPoint = false;
         wasMove = true;
       }
-      else if (m_currentFillGeometry[i]["libwpg:path-action"]->getStr() == "M")
+      else if (m_currentFillGeometry[i]["librevenge:path-action"]->getStr() == "M")
       {
         if (!tmpPath.empty())
         {
           if (!wasMove)
           {
-            if (tmpPath.back()["libwpg:path-action"]->getStr() != "Z")
+            if (tmpPath.back()["librevenge:path-action"]->getStr() != "Z")
             {
-              WPXPropertyList closedPath;
-              closedPath.insert("libwpg:path-action", "Z");
+              librevenge::RVNGPropertyList closedPath;
+              closedPath.insert("librevenge:path-action", "Z");
               tmpPath.push_back(closedPath);
             }
           }
@@ -296,10 +253,10 @@ void libvisio::VSDContentCollector::_flushCurrentPath()
     {
       if (!wasMove)
       {
-        if (tmpPath.back()["libwpg:path-action"]->getStr() != "Z")
+        if (tmpPath.back()["librevenge:path-action"]->getStr() != "Z")
         {
-          WPXPropertyList closedPath;
-          closedPath.insert("libwpg:path-action", "Z");
+          librevenge::RVNGPropertyList closedPath;
+          closedPath.insert("librevenge:path-action", "Z");
           tmpPath.push_back(closedPath);
         }
       }
@@ -308,11 +265,13 @@ void libvisio::VSDContentCollector::_flushCurrentPath()
     }
     if (!tmpPath.empty())
     {
-      WPXPropertyListVector path;
+      librevenge::RVNGPropertyListVector path;
       for (unsigned i = 0; i < tmpPath.size(); ++i)
         path.append(tmpPath[i]);
-      m_shapeOutputDrawing->addStyle(fillPathProps, WPXPropertyListVector());
-      m_shapeOutputDrawing->addPath(path);
+      m_shapeOutputDrawing->addStyle(fillPathProps);
+      librevenge::RVNGPropertyList propList;
+      propList.insert("svg:d", path);
+      m_shapeOutputDrawing->addPath(propList);
     }
   }
   m_currentFillGeometry.clear();
@@ -335,7 +294,7 @@ void libvisio::VSDContentCollector::_flushCurrentPath()
         x = m_currentLineGeometry[i]["svg:x"]->getDouble();
         y = m_currentLineGeometry[i]["svg:y"]->getDouble();
       }
-      else if (m_currentLineGeometry[i]["libwpg:path-action"]->getStr() == "M")
+      else if (m_currentLineGeometry[i]["librevenge:path-action"]->getStr() == "M")
       {
         if (!tmpPath.empty())
         {
@@ -343,10 +302,10 @@ void libvisio::VSDContentCollector::_flushCurrentPath()
           {
             if ((x == prevX) && (y == prevY))
             {
-              if (tmpPath.back()["libwpg:path-action"]->getStr() != "Z")
+              if (tmpPath.back()["librevenge:path-action"]->getStr() != "Z")
               {
-                WPXPropertyList closedPath;
-                closedPath.insert("libwpg:path-action", "Z");
+                librevenge::RVNGPropertyList closedPath;
+                closedPath.insert("librevenge:path-action", "Z");
                 tmpPath.push_back(closedPath);
               }
             }
@@ -374,10 +333,10 @@ void libvisio::VSDContentCollector::_flushCurrentPath()
       {
         if ((x == prevX) && (y == prevY))
         {
-          if (tmpPath.back()["libwpg:path-action"]->getStr() != "Z")
+          if (tmpPath.back()["librevenge:path-action"]->getStr() != "Z")
           {
-            WPXPropertyList closedPath;
-            closedPath.insert("libwpg:path-action", "Z");
+            librevenge::RVNGPropertyList closedPath;
+            closedPath.insert("librevenge:path-action", "Z");
             tmpPath.push_back(closedPath);
           }
         }
@@ -389,11 +348,13 @@ void libvisio::VSDContentCollector::_flushCurrentPath()
     }
     if (!tmpPath.empty())
     {
-      WPXPropertyListVector path;
+      librevenge::RVNGPropertyListVector path;
       for (unsigned i = 0; i < tmpPath.size(); ++i)
         path.append(tmpPath[i]);
-      m_shapeOutputDrawing->addStyle(linePathProps, WPXPropertyListVector());
-      m_shapeOutputDrawing->addPath(path);
+      m_shapeOutputDrawing->addStyle(linePathProps);
+      librevenge::RVNGPropertyList propList;
+      propList.insert("svg:d", path);
+      m_shapeOutputDrawing->addPath(propList);
     }
   }
   m_currentLineGeometry.clear();
@@ -415,7 +376,7 @@ void libvisio::VSDContentCollector::_flushText()
   double angle = 0.0;
   transformAngle(angle, m_txtxform);
 
-  WPXPropertyList textBlockProps;
+  librevenge::RVNGPropertyList textBlockProps;
 
   bool flipX = false;
   bool flipY = false;
@@ -437,7 +398,7 @@ void libvisio::VSDContentCollector::_flushText()
   textBlockProps.insert("fo:padding-bottom", m_textBlockStyle.bottomMargin);
   textBlockProps.insert("fo:padding-left", m_textBlockStyle.leftMargin);
   textBlockProps.insert("fo:padding-right", m_textBlockStyle.rightMargin);
-  textBlockProps.insert("libwpg:rotate", angle*180/M_PI, WPX_GENERIC);
+  textBlockProps.insert("librevenge:rotate", angle*180/M_PI, librevenge::RVNG_GENERIC);
 
   switch (m_textBlockStyle.verticalAlign)
   {
@@ -457,7 +418,7 @@ void libvisio::VSDContentCollector::_flushText()
   if (m_paraFormats.empty())
     m_paraFormats.push_back(m_defaultParaStyle);
 
-  unsigned numCharsInText =  (unsigned)(m_textFormat == VSD_TEXT_UTF16 ? m_textStream.size() / 2 : m_textStream.size());
+  unsigned numCharsInText = (unsigned)(m_textFormat == VSD_TEXT_UTF16 ? m_textStream.size() / 2 : m_textStream.size());
 
   for (unsigned iChar = 0; iChar < m_charFormats.size(); iChar++)
   {
@@ -467,7 +428,7 @@ void libvisio::VSDContentCollector::_flushText()
       m_charFormats[iChar].charCount = numCharsInText;
   }
 
-  numCharsInText =  (unsigned)(m_textFormat == VSD_TEXT_UTF16 ? m_textStream.size() / 2 : m_textStream.size());
+  numCharsInText = (unsigned)(m_textFormat == VSD_TEXT_UTF16 ? m_textStream.size() / 2 : m_textStream.size());
 
   for (unsigned iPara = 0; iPara < m_paraFormats.size(); iPara++)
   {
@@ -477,7 +438,7 @@ void libvisio::VSDContentCollector::_flushText()
       m_paraFormats[iPara].charCount = numCharsInText;
   }
 
-  m_shapeOutputText->addStartTextObject(textBlockProps, WPXPropertyListVector());
+  m_shapeOutputText->addStartTextObject(textBlockProps);
 
   unsigned int charIndex = 0;
   unsigned int paraCharCount = 0;
@@ -488,7 +449,7 @@ void libvisio::VSDContentCollector::_flushText()
   for (std::vector<VSDParaStyle>::iterator paraIt = m_paraFormats.begin();
        paraIt != m_paraFormats.end() && charIndex < m_charFormats.size(); ++paraIt)
   {
-    WPXPropertyList paraProps;
+    librevenge::RVNGPropertyList paraProps;
 
     paraProps.insert("fo:text-indent", (*paraIt).indFirst);
     paraProps.insert("fo:margin-left", (*paraIt).indLeft);
@@ -522,9 +483,9 @@ void libvisio::VSDContentCollector::_flushText()
     if ((*paraIt).spLine > 0)
       paraProps.insert("fo:line-height", (*paraIt).spLine);
     else
-      paraProps.insert("fo:line-height", -(*paraIt).spLine, WPX_PERCENT);
+      paraProps.insert("fo:line-height", -(*paraIt).spLine, librevenge::RVNG_PERCENT);
 
-    m_shapeOutputText->addStartTextLine(paraProps);
+    m_shapeOutputText->addOpenParagraph(paraProps);
 
     paraCharCount = (*paraIt).charCount;
 
@@ -533,9 +494,9 @@ void libvisio::VSDContentCollector::_flushText()
     {
       paraCharCount -= m_charFormats[charIndex].charCount;
 
-      WPXPropertyList textProps;
+      librevenge::RVNGPropertyList textProps;
 
-      WPXString fontName;
+      librevenge::RVNGString fontName;
       if (m_charFormats[charIndex].font.m_data.size())
         _convertDataToString(fontName, m_charFormats[charIndex].font.m_data, m_charFormats[charIndex].font.m_format);
       else
@@ -554,24 +515,24 @@ void libvisio::VSDContentCollector::_flushText()
       if (m_charFormats[charIndex].smallcaps) textProps.insert("fo:font-variant", "small-caps");
       if (m_charFormats[charIndex].superscript) textProps.insert("style:text-position", "super");
       if (m_charFormats[charIndex].subscript) textProps.insert("style:text-position", "sub");
-      textProps.insert("fo:font-size", m_charFormats[charIndex].size*72.0, WPX_POINT);
+      textProps.insert("fo:font-size", m_charFormats[charIndex].size*72.0, librevenge::RVNG_POINT);
       textProps.insert("fo:color", getColourString(m_charFormats[charIndex].colour));
       double opacity = 1.0;
       if (m_charFormats[charIndex].colour.a)
         opacity -= (double)(m_charFormats[charIndex].colour.a)/255.0;
-      textProps.insert("svg:stroke-opacity", opacity, WPX_PERCENT);
-      textProps.insert("svg:fill-opacity", opacity, WPX_PERCENT);
+      textProps.insert("svg:stroke-opacity", opacity, librevenge::RVNG_PERCENT);
+      textProps.insert("svg:fill-opacity", opacity, librevenge::RVNG_PERCENT);
       // TODO: In draw, text span background cannot be specified the same way as in writer span
       if (m_textBlockStyle.isTextBkgndFilled)
       {
         textProps.insert("fo:background-color", getColourString(m_textBlockStyle.textBkgndColour));
 #if 0
         if (m_textBlockStyle.textBkgndColour.a)
-          textProps.insert("fo:background-opacity", 1.0 - m_textBlockStyle.textBkgndColour.a/255.0, WPX_PERCENT);
+          textProps.insert("fo:background-opacity", 1.0 - m_textBlockStyle.textBkgndColour.a/255.0, librevenge::RVNG_PERCENT);
 #endif
       }
 
-      WPXString text;
+      librevenge::RVNGString text;
 
       if (m_textFormat == VSD_TEXT_UTF16)
       {
@@ -593,7 +554,7 @@ void libvisio::VSDContentCollector::_flushText()
           if (tmpBuffer.size() >= 2)
           {
             if (tmpBuffer[tmpBuffer.size() - 1] == 0 && (tmpBuffer[tmpBuffer.size() - 2] == 0x0a ||
-                tmpBuffer[tmpBuffer.size() - 2] == '\n' || tmpBuffer[tmpBuffer.size() - 2] == 0x0e))
+                                                         tmpBuffer[tmpBuffer.size() - 2] == '\n' || tmpBuffer[tmpBuffer.size() - 2] == 0x0e))
             {
               tmpBuffer.pop_back();
               tmpBuffer.pop_back();
@@ -646,9 +607,9 @@ void libvisio::VSDContentCollector::_flushText()
       }
 
       VSD_DEBUG_MSG(("Text: %s\n", text.cstr()));
-      m_shapeOutputText->addStartTextSpan(textProps);
+      m_shapeOutputText->addOpenSpan(textProps);
       m_shapeOutputText->addInsertText(text);
-      m_shapeOutputText->addEndTextSpan();
+      m_shapeOutputText->addCloseSpan();
 
       charIndex++;
       if (charIndex < m_charFormats.size() && paraCharCount && m_charFormats[charIndex].charCount > paraCharCount)
@@ -661,7 +622,7 @@ void libvisio::VSDContentCollector::_flushText()
         m_charFormats[charIndex+1].charCount -= paraCharCount;
       }
     }
-    m_shapeOutputText->addEndTextLine();
+    m_shapeOutputText->addCloseParagraph();
   }
 
   m_shapeOutputText->addEndTextObject();
@@ -680,7 +641,7 @@ void libvisio::VSDContentCollector::_flushCurrentForeignData()
 
   transformFlips(flipX, flipY);
 
-  WPXPropertyList styleProps;
+  librevenge::RVNGPropertyList styleProps;
 
   m_currentForeignProps.insert("svg:x", m_scale*(xmiddle - (m_foreignWidth / 2.0)));
   m_currentForeignProps.insert("svg:width", m_scale*m_foreignWidth);
@@ -702,12 +663,13 @@ void libvisio::VSDContentCollector::_flushCurrentForeignData()
   }
 
   if (angle != 0.0)
-    m_currentForeignProps.insert("libwpg:rotate", angle * 180 / M_PI, WPX_GENERIC);
+    m_currentForeignProps.insert("librevenge:rotate", angle * 180 / M_PI, librevenge::RVNG_GENERIC);
 
-  if (m_currentForeignData.size() && m_currentForeignProps["libwpg:mime-type"] && m_foreignWidth != 0.0 && m_foreignHeight != 0.0)
+  if (m_currentForeignData.size() && m_currentForeignProps["librevenge:mime-type"] && m_foreignWidth != 0.0 && m_foreignHeight != 0.0)
   {
-    m_shapeOutputDrawing->addStyle(styleProps, WPXPropertyListVector());
-    m_shapeOutputDrawing->addGraphicObject(m_currentForeignProps, m_currentForeignData);
+    m_shapeOutputDrawing->addStyle(styleProps);
+    m_currentForeignProps.insert("office:binary-data", m_currentForeignData);
+    m_shapeOutputDrawing->addGraphicObject(m_currentForeignProps);
   }
   m_currentForeignData.clear();
   m_currentForeignProps.clear();
@@ -783,10 +745,10 @@ void libvisio::VSDContentCollector::collectEllipticalArcTo(unsigned /* id */, un
   if (fabs(((x1-x2n)*(y2n-y3n) - (x2n-x3n)*(y1-y2n))) <= LIBVISIO_EPSILON || fabs(((x2n-x3n)*(y1-y2n) - (x1-x2n)*(y2n-y3n))) <= LIBVISIO_EPSILON)
     // most probably all of the points lie on the same line, so use lineTo instead
   {
-    WPXPropertyList end;
+    librevenge::RVNGPropertyList end;
     end.insert("svg:x", m_scale*m_x);
     end.insert("svg:y", m_scale*m_y);
-    end.insert("libwpg:path-action", "L");
+    end.insert("librevenge:path-action", "L");
     if (!m_noFill && !m_noShow)
       m_currentFillGeometry.push_back(end);
     if (!m_noLine && !m_noShow)
@@ -805,7 +767,7 @@ void libvisio::VSDContentCollector::collectEllipticalArcTo(unsigned /* id */, un
 
   double rx = sqrt(pow(x1-x0, 2) + pow(y1-y0, 2));
   double ry = rx / ecc;
-  WPXPropertyList arc;
+  librevenge::RVNGPropertyList arc;
   int largeArc = 0;
   int sweep = 1;
 
@@ -821,12 +783,12 @@ void libvisio::VSDContentCollector::collectEllipticalArcTo(unsigned /* id */, un
 
   arc.insert("svg:rx", m_scale*rx);
   arc.insert("svg:ry", m_scale*ry);
-  arc.insert("libwpg:rotate", angle * 180 / M_PI, WPX_GENERIC);
-  arc.insert("libwpg:large-arc", largeArc);
-  arc.insert("libwpg:sweep", sweep);
+  arc.insert("librevenge:rotate", angle * 180 / M_PI, librevenge::RVNG_GENERIC);
+  arc.insert("librevenge:large-arc", largeArc);
+  arc.insert("librevenge:sweep", sweep);
   arc.insert("svg:x", m_scale*m_x);
   arc.insert("svg:y", m_scale*m_y);
-  arc.insert("libwpg:path-action", "A");
+  arc.insert("librevenge:path-action", "A");
   if (!m_noFill && !m_noShow)
     m_currentFillGeometry.push_back(arc);
   if (!m_noLine && !m_noShow)
@@ -836,7 +798,7 @@ void libvisio::VSDContentCollector::collectEllipticalArcTo(unsigned /* id */, un
 void libvisio::VSDContentCollector::collectEllipse(unsigned /* id */, unsigned level, double cx, double cy, double xleft, double yleft, double xtop, double ytop)
 {
   _handleLevelChange(level);
-  WPXPropertyList ellipse;
+  librevenge::RVNGPropertyList ellipse;
   double angle = fmod(2.0*M_PI + (cy > yleft ? 1.0 : -1.0)*acos((cx-xleft) / sqrt((xleft - cx)*(xleft - cx) + (yleft - cy)*(yleft - cy))), 2.0*M_PI);
   transformPoint(cx, cy);
   transformPoint(xleft, yleft);
@@ -854,7 +816,7 @@ void libvisio::VSDContentCollector::collectEllipse(unsigned /* id */, unsigned l
   }
   ellipse.insert("svg:x",m_scale*xleft);
   ellipse.insert("svg:y",m_scale*yleft);
-  ellipse.insert("libwpg:path-action", "M");
+  ellipse.insert("librevenge:path-action", "M");
   if (!m_noFill && !m_noShow)
     m_currentFillGeometry.push_back(ellipse);
   if (!m_noLine && !m_noShow)
@@ -863,22 +825,22 @@ void libvisio::VSDContentCollector::collectEllipse(unsigned /* id */, unsigned l
   ellipse.insert("svg:ry",m_scale*ry);
   ellipse.insert("svg:x",m_scale*xtop);
   ellipse.insert("svg:y",m_scale*ytop);
-  ellipse.insert("libwpg:large-arc", largeArc?1:0);
-  ellipse.insert("libwpg:path-action", "A");
-  ellipse.insert("libwpg:rotate", angle * 180/M_PI, WPX_GENERIC);
+  ellipse.insert("librevenge:large-arc", largeArc?1:0);
+  ellipse.insert("librevenge:path-action", "A");
+  ellipse.insert("librevenge:rotate", angle * 180/M_PI, librevenge::RVNG_GENERIC);
   if (!m_noFill && !m_noShow)
     m_currentFillGeometry.push_back(ellipse);
   if (!m_noLine && !m_noShow)
     m_currentLineGeometry.push_back(ellipse);
   ellipse.insert("svg:x",m_scale*xleft);
   ellipse.insert("svg:y",m_scale*yleft);
-  ellipse.insert("libwpg:large-arc", largeArc?0:1);
+  ellipse.insert("librevenge:large-arc", largeArc?0:1);
   if (!m_noFill && !m_noShow)
     m_currentFillGeometry.push_back(ellipse);
   if (!m_noLine && !m_noShow)
     m_currentLineGeometry.push_back(ellipse);
   ellipse.clear();
-  ellipse.insert("libwpg:path-action", "Z");
+  ellipse.insert("librevenge:path-action", "Z");
   if (!m_noFill && !m_noShow)
     m_currentFillGeometry.push_back(ellipse);
   if (!m_noLine && !m_noShow)
@@ -957,17 +919,17 @@ void libvisio::VSDContentCollector::collectInfiniteLine(unsigned /* id */, unsig
     }
   }
 
-  WPXPropertyList infLine;
+  librevenge::RVNGPropertyList infLine;
   infLine.insert("svg:x",m_scale*xmove);
   infLine.insert("svg:y",m_scale*ymove);
-  infLine.insert("libwpg:path-action", "M");
+  infLine.insert("librevenge:path-action", "M");
   if (!m_noFill && !m_noShow)
     m_currentFillGeometry.push_back(infLine);
   if (!m_noLine && !m_noShow)
     m_currentLineGeometry.push_back(infLine);
   infLine.insert("svg:x",m_scale*xline);
   infLine.insert("svg:y",m_scale*yline);
-  infLine.insert("libwpg:path-action", "L");
+  infLine.insert("librevenge:path-action", "L");
   if (!m_noFill && !m_noShow)
     m_currentFillGeometry.push_back(infLine);
   if (!m_noLine && !m_noShow)
@@ -990,8 +952,8 @@ void libvisio::VSDContentCollector::collectRelCubBezTo(unsigned /* id */, unsign
   transformPoint(x, y);
   m_x = x;
   m_y = y;
-  WPXPropertyList node;
-  node.insert("libwpg:path-action", "C");
+  librevenge::RVNGPropertyList node;
+  node.insert("librevenge:path-action", "C");
   node.insert("svg:x",m_scale*x);
   node.insert("svg:y",m_scale*y);
   node.insert("svg:x1",m_scale*x1);
@@ -1040,8 +1002,8 @@ void libvisio::VSDContentCollector::collectRelQuadBezTo(unsigned /* id */, unsig
   transformPoint(x, y);
   m_x = x;
   m_y = y;
-  WPXPropertyList node;
-  node.insert("libwpg:path-action", "Q");
+  librevenge::RVNGPropertyList node;
+  node.insert("librevenge:path-action", "Q");
   node.insert("svg:x",m_scale*x);
   node.insert("svg:y",m_scale*y);
   node.insert("svg:x1",m_scale*x1);
@@ -1053,29 +1015,37 @@ void libvisio::VSDContentCollector::collectRelQuadBezTo(unsigned /* id */, unsig
 }
 
 void libvisio::VSDContentCollector::collectLine(unsigned level, const boost::optional<double> &strokeWidth, const boost::optional<Colour> &c, const boost::optional<unsigned char> &linePattern,
-    const boost::optional<unsigned char> &startMarker, const boost::optional<unsigned char> &endMarker, const boost::optional<unsigned char> &lineCap)
+                                                const boost::optional<unsigned char> &startMarker, const boost::optional<unsigned char> &endMarker, const boost::optional<unsigned char> &lineCap)
 {
   _handleLevelChange(level);
   m_lineStyle.override(VSDOptionalLineStyle(strokeWidth, c, linePattern, startMarker, endMarker, lineCap));
 }
 
 void libvisio::VSDContentCollector::collectFillAndShadow(unsigned level, const boost::optional<Colour> &colourFG, const boost::optional<Colour> &colourBG,
-    const boost::optional<unsigned char> &fillPattern, const boost::optional<double> &fillFGTransparency, const boost::optional<double> &fillBGTransparency,
-    const boost::optional<unsigned char> &shadowPattern, const boost::optional<Colour> &shfgc, const boost::optional<double> &shadowOffsetX,
-    const boost::optional<double> &shadowOffsetY)
+                                                         const boost::optional<unsigned char> &fillPattern, const boost::optional<double> &fillFGTransparency, const boost::optional<double> &fillBGTransparency,
+                                                         const boost::optional<unsigned char> &shadowPattern, const boost::optional<Colour> &shfgc, const boost::optional<double> &shadowOffsetX,
+                                                         const boost::optional<double> &shadowOffsetY)
 {
   _handleLevelChange(level);
   m_fillStyle.override(VSDOptionalFillStyle(colourFG, colourBG, fillPattern, fillFGTransparency, fillBGTransparency, shfgc, shadowPattern, shadowOffsetX, shadowOffsetY));
 }
 
 void libvisio::VSDContentCollector::collectFillAndShadow(unsigned level, const boost::optional<Colour> &colourFG, const boost::optional<Colour> &colourBG,
-    const boost::optional<unsigned char> &fillPattern, const boost::optional<double> &fillFGTransparency, const boost::optional<double> &fillBGTransparency,
-    const boost::optional<unsigned char> &shadowPattern, const boost::optional<Colour> &shfgc)
+                                                         const boost::optional<unsigned char> &fillPattern, const boost::optional<double> &fillFGTransparency,
+                                                         const boost::optional<double> &fillBGTransparency,
+                                                         const boost::optional<unsigned char> &shadowPattern, const boost::optional<Colour> &shfgc)
 {
   collectFillAndShadow(level, colourFG, colourBG, fillPattern, fillFGTransparency, fillBGTransparency, shadowPattern, shfgc, m_shadowOffsetX, m_shadowOffsetY);
 }
 
-void libvisio::VSDContentCollector::collectForeignData(unsigned level, const WPXBinaryData &binaryData)
+void libvisio::VSDContentCollector::collectThemeReference(unsigned level, const boost::optional<long> &lineColour, const boost::optional<long> &fillColour,
+                                                          const boost::optional<long> &shadowColour, const boost::optional<long> &fontColour)
+{
+  _handleLevelChange(level);
+  m_themeReference.override(VSDOptionalThemeReference(lineColour, fillColour, shadowColour, fontColour));
+}
+
+void libvisio::VSDContentCollector::collectForeignData(unsigned level, const librevenge::RVNGBinaryData &binaryData)
 {
   _handleLevelChange(level);
   _handleForeignData(binaryData);
@@ -1085,17 +1055,17 @@ void libvisio::VSDContentCollector::collectOLEList(unsigned /* id */, unsigned l
 {
   _handleLevelChange(level);
   m_currentForeignData.clear();
-  WPXBinaryData binaryData;
+  librevenge::RVNGBinaryData binaryData;
   _handleForeignData(binaryData);
 }
 
-void libvisio::VSDContentCollector::collectOLEData(unsigned /* id */, unsigned level, const WPXBinaryData &oleData)
+void libvisio::VSDContentCollector::collectOLEData(unsigned /* id */, unsigned level, const librevenge::RVNGBinaryData &oleData)
 {
   _handleLevelChange(level);
   m_currentForeignData.append(oleData);
 }
 
-void libvisio::VSDContentCollector::_handleForeignData(const WPXBinaryData &binaryData)
+void libvisio::VSDContentCollector::_handleForeignData(const librevenge::RVNGBinaryData &binaryData)
 {
   if (m_foreignType == 0 || m_foreignType == 1 || m_foreignType == 4) // Image
   {
@@ -1111,37 +1081,37 @@ void libvisio::VSDContentCollector::_handleForeignData(const WPXBinaryData &bina
       m_currentForeignData.append((unsigned char)(((binaryData.size() + 14) & 0x00ff0000) >> 16));
       m_currentForeignData.append((unsigned char)(((binaryData.size() + 14) & 0xff000000) >> 24));
 
-      m_currentForeignData.append(0x00);
-      m_currentForeignData.append(0x00);
-      m_currentForeignData.append(0x00);
-      m_currentForeignData.append(0x00);
+      m_currentForeignData.append((unsigned char)0x00);
+      m_currentForeignData.append((unsigned char)0x00);
+      m_currentForeignData.append((unsigned char)0x00);
+      m_currentForeignData.append((unsigned char)0x00);
 
-      m_currentForeignData.append(0x36);
-      m_currentForeignData.append(0x00);
-      m_currentForeignData.append(0x00);
-      m_currentForeignData.append(0x00);
+      m_currentForeignData.append((unsigned char)0x36);
+      m_currentForeignData.append((unsigned char)0x00);
+      m_currentForeignData.append((unsigned char)0x00);
+      m_currentForeignData.append((unsigned char)0x00);
     }
     m_currentForeignData.append(binaryData);
 
     if (m_foreignType == 1)
     {
-      switch(m_foreignFormat)
+      switch (m_foreignFormat)
       {
       case 0:
       case 255:
-        m_currentForeignProps.insert("libwpg:mime-type", "image/bmp");
+        m_currentForeignProps.insert("librevenge:mime-type", "image/bmp");
         break;
       case 1:
-        m_currentForeignProps.insert("libwpg:mime-type", "image/jpeg");
+        m_currentForeignProps.insert("librevenge:mime-type", "image/jpeg");
         break;
       case 2:
-        m_currentForeignProps.insert("libwpg:mime-type", "image/gif");
+        m_currentForeignProps.insert("librevenge:mime-type", "image/gif");
         break;
       case 3:
-        m_currentForeignProps.insert("libwpg:mime-type", "image/tiff");
+        m_currentForeignProps.insert("librevenge:mime-type", "image/tiff");
         break;
       case 4:
-        m_currentForeignProps.insert("libwpg:mime-type", "image/png");
+        m_currentForeignProps.insert("librevenge:mime-type", "image/png");
         break;
       }
     }
@@ -1150,22 +1120,22 @@ void libvisio::VSDContentCollector::_handleForeignData(const WPXBinaryData &bina
       const unsigned char *tmpBinData = m_currentForeignData.getDataBuffer();
       // Check for EMF signature
       if (m_currentForeignData.size() > 0x2B && tmpBinData[0x28] == 0x20 && tmpBinData[0x29] == 0x45 && tmpBinData[0x2A] == 0x4D && tmpBinData[0x2B] == 0x46)
-        m_currentForeignProps.insert("libwpg:mime-type", "image/emf");
+        m_currentForeignProps.insert("librevenge:mime-type", "image/emf");
       else
-        m_currentForeignProps.insert("libwpg:mime-type", "image/wmf");
+        m_currentForeignProps.insert("librevenge:mime-type", "image/wmf");
     }
   }
   else if (m_foreignType == 2)
   {
-    m_currentForeignProps.insert("libwpg:mime-type", "object/ole");
+    m_currentForeignProps.insert("librevenge:mime-type", "object/ole");
     m_currentForeignData.append(binaryData);
   }
 
 #if DUMP_BITMAP
-  ::WPXString filename;
+  librevenge::RVNGString filename;
   if (m_foreignType == 1)
   {
-    switch(m_foreignFormat)
+    switch (m_foreignFormat)
     {
     case 0:
     case 255:
@@ -1188,7 +1158,7 @@ void libvisio::VSDContentCollector::_handleForeignData(const WPXBinaryData &bina
       break;
     }
   }
-  else if  (m_foreignType == 0 || m_foreignType == 4)
+  else if (m_foreignType == 0 || m_foreignType == 4)
   {
     const unsigned char *tmpBinData = m_currentForeignData.getDataBuffer();
     // Check for EMF signature
@@ -1236,10 +1206,10 @@ void libvisio::VSDContentCollector::collectMoveTo(unsigned /* id */, unsigned le
   transformPoint(x, y);
   m_x = x;
   m_y = y;
-  WPXPropertyList end;
+  librevenge::RVNGPropertyList end;
   end.insert("svg:x", m_scale*m_x);
   end.insert("svg:y", m_scale*m_y);
-  end.insert("libwpg:path-action", "M");
+  end.insert("librevenge:path-action", "M");
   if (!m_noFill && !m_noShow)
     m_currentFillGeometry.push_back(end);
   if (!m_noLine && !m_noShow)
@@ -1254,10 +1224,10 @@ void libvisio::VSDContentCollector::collectLineTo(unsigned /* id */, unsigned le
   transformPoint(x, y);
   m_x = x;
   m_y = y;
-  WPXPropertyList end;
+  librevenge::RVNGPropertyList end;
   end.insert("svg:x", m_scale*m_x);
   end.insert("svg:y", m_scale*m_y);
-  end.insert("libwpg:path-action", "L");
+  end.insert("librevenge:path-action", "L");
   if (!m_noFill && !m_noShow)
     m_currentFillGeometry.push_back(end);
   if (!m_noLine && !m_noShow)
@@ -1277,10 +1247,10 @@ void libvisio::VSDContentCollector::collectArcTo(unsigned /* id */, unsigned lev
   {
     m_x = x2;
     m_y = y2;
-    WPXPropertyList end;
+    librevenge::RVNGPropertyList end;
     end.insert("svg:x", m_scale*m_x);
     end.insert("svg:y", m_scale*m_y);
-    end.insert("libwpg:path-action", "L");
+    end.insert("librevenge:path-action", "L");
     if (!m_noFill && !m_noShow)
       m_currentFillGeometry.push_back(end);
     if (!m_noLine && !m_noShow)
@@ -1288,7 +1258,7 @@ void libvisio::VSDContentCollector::collectArcTo(unsigned /* id */, unsigned lev
   }
   else
   {
-    WPXPropertyList arc;
+    librevenge::RVNGPropertyList arc;
     double chord = sqrt(pow((y2 - m_y),2) + pow((x2 - m_x),2));
     double radius = (4 * bow * bow + chord * chord) / (8 * fabs(bow));
     int largeArc = fabs(bow) > radius ? 1 : 0;
@@ -1299,12 +1269,12 @@ void libvisio::VSDContentCollector::collectArcTo(unsigned /* id */, unsigned lev
     m_y = y2;
     arc.insert("svg:rx", m_scale*radius);
     arc.insert("svg:ry", m_scale*radius);
-    arc.insert("libwpg:rotate", angle*180/M_PI, WPX_GENERIC);
-    arc.insert("libwpg:large-arc", largeArc);
-    arc.insert("libwpg:sweep", sweep);
+    arc.insert("librevenge:rotate", angle*180/M_PI, librevenge::RVNG_GENERIC);
+    arc.insert("librevenge:large-arc", largeArc);
+    arc.insert("librevenge:sweep", sweep);
     arc.insert("svg:x", m_scale*m_x);
     arc.insert("svg:y", m_scale*m_y);
-    arc.insert("libwpg:path-action", "A");
+    arc.insert("librevenge:path-action", "A");
     if (!m_noFill && !m_noShow)
       m_currentFillGeometry.push_back(arc);
     if (!m_noLine && !m_noShow)
@@ -1317,8 +1287,8 @@ void libvisio::VSDContentCollector::_outputCubicBezierSegment(const std::vector<
 {
   if (points.size() < 4)
     return;
-  WPXPropertyList node;
-  node.insert("libwpg:path-action", "C");
+  librevenge::RVNGPropertyList node;
+  node.insert("librevenge:path-action", "C");
   double x = points[1].first;
   double y = points[1].second;
   transformPoint(x, y);
@@ -1345,8 +1315,8 @@ void libvisio::VSDContentCollector::_outputQuadraticBezierSegment(const std::vec
 {
   if (points.size() < 3)
     return;
-  WPXPropertyList node;
-  node.insert("libwpg:path-action", "Q");
+  librevenge::RVNGPropertyList node;
+  node.insert("librevenge:path-action", "Q");
   double x = points[1].first;
   double y = points[1].second;
   transformPoint(x, y);
@@ -1368,8 +1338,8 @@ void libvisio::VSDContentCollector::_outputLinearBezierSegment(const std::vector
 {
   if (points.size() < 2)
     return;
-  WPXPropertyList node;
-  node.insert("libwpg:path-action", "L");
+  librevenge::RVNGPropertyList node;
+  node.insert("librevenge:path-action", "L");
   double x = points[1].first;
   double y = points[1].second;
   transformPoint(x, y);
@@ -1383,7 +1353,7 @@ void libvisio::VSDContentCollector::_outputLinearBezierSegment(const std::vector
 }
 
 void libvisio::VSDContentCollector::_generateBezierSegmentsFromNURBS(unsigned degree,
-    const std::vector<std::pair<double, double> > &controlPoints, const std::vector<double> &knotVector)
+                                                                     const std::vector<std::pair<double, double> > &controlPoints, const std::vector<double> &knotVector)
 {
   if (controlPoints.empty() || knotVector.empty() || !degree)
     return;
@@ -1486,17 +1456,17 @@ double libvisio::VSDContentCollector::_NURBSBasis(unsigned knot, unsigned degree
 #define VSD_NUM_POLYLINES_PER_KNOT 100
 
 void libvisio::VSDContentCollector::_generatePolylineFromNURBS(unsigned degree, const std::vector<std::pair<double, double> > &controlPoints,
-    const std::vector<double> &knotVector, const std::vector<double> &weights)
+                                                               const std::vector<double> &knotVector, const std::vector<double> &weights)
 {
   if (m_noShow)
     return;
 
-  WPXPropertyList node;
+  librevenge::RVNGPropertyList node;
 
   for (unsigned i = 0; i < VSD_NUM_POLYLINES_PER_KNOT * knotVector.size(); i++)
   {
     node.clear();
-    node.insert("libwpg:path-action", "L");
+    node.insert("librevenge:path-action", "L");
     double x = 0;
     double y = 0;
     double denominator = LIBVISIO_EPSILON;
@@ -1537,8 +1507,8 @@ bool libvisio::VSDContentCollector::_isUniform(const std::vector<double> &weight
 }
 
 void libvisio::VSDContentCollector::collectNURBSTo(unsigned /* id */, unsigned level, double x2, double y2,
-    unsigned char xType, unsigned char yType, unsigned degree, const std::vector<std::pair<double, double> > &ctrlPnts,
-    const std::vector<double> &kntVec, const std::vector<double> &weights)
+                                                   unsigned char xType, unsigned char yType, unsigned degree, const std::vector<std::pair<double, double> > &ctrlPnts,
+                                                   const std::vector<double> &kntVec, const std::vector<double> &weights)
 {
   _handleLevelChange(level);
 
@@ -1572,7 +1542,7 @@ void libvisio::VSDContentCollector::collectNURBSTo(unsigned /* id */, unsigned l
   // Let knotVector run from 0 to 1
   double firstKnot = knotVector[0];
   double lastKnot = knotVector.back()-knotVector[0];
-  for(std::vector<double>::iterator knot = knotVector.begin(); knot != knotVector.end(); ++knot)
+  for (std::vector<double>::iterator knot = knotVector.begin(); knot != knotVector.end(); ++knot)
   {
     *knot -= firstKnot;
     *knot /= lastKnot;
@@ -1589,8 +1559,8 @@ void libvisio::VSDContentCollector::collectNURBSTo(unsigned /* id */, unsigned l
   m_y = y2;
   transformPoint(m_x, m_y);
 #if 1
-  WPXPropertyList node;
-  node.insert("libwpg:path-action", "L");
+  librevenge::RVNGPropertyList node;
+  node.insert("librevenge:path-action", "L");
   node.insert("svg:x", m_scale*m_x);
   node.insert("svg:y", m_scale*m_y);
   if (!m_noFill && !m_noShow)
@@ -1653,7 +1623,7 @@ void libvisio::VSDContentCollector::collectPolylineTo(unsigned /* id */ , unsign
 {
   _handleLevelChange(level);
 
-  WPXPropertyList polyline;
+  librevenge::RVNGPropertyList polyline;
   std::vector<std::pair<double, double> > tmpPoints(points);
   for (unsigned i = 0; i< points.size(); i++)
   {
@@ -1664,7 +1634,7 @@ void libvisio::VSDContentCollector::collectPolylineTo(unsigned /* id */ , unsign
       tmpPoints[i].second *= m_xform.height;
 
     transformPoint(tmpPoints[i].first, tmpPoints[i].second);
-    polyline.insert("libwpg:path-action", "L");
+    polyline.insert("librevenge:path-action", "L");
     polyline.insert("svg:x", m_scale*tmpPoints[i].first);
     polyline.insert("svg:y", m_scale*tmpPoints[i].second);
     if (!m_noFill && !m_noShow)
@@ -1678,7 +1648,7 @@ void libvisio::VSDContentCollector::collectPolylineTo(unsigned /* id */ , unsign
   m_x = x;
   m_y = y;
   transformPoint(m_x, m_y);
-  polyline.insert("libwpg:path-action", "L");
+  polyline.insert("librevenge:path-action", "L");
   polyline.insert("svg:x", m_scale*m_x);
   polyline.insert("svg:y", m_scale*m_y);
   if (!m_noFill && !m_noShow)
@@ -1995,7 +1965,7 @@ void libvisio::VSDContentCollector::collectShape(unsigned id, unsigned level, un
 
     for (std::map< unsigned, VSDName>::const_iterator iterData = m_stencilShape->m_names.begin(); iterData != m_stencilShape->m_names.end(); ++iterData)
     {
-      WPXString nameString;
+      librevenge::RVNGString nameString;
       _convertDataToString(nameString, iterData->second.m_data, iterData->second.m_format);
       m_stencilNames[iterData->first] = nameString;
     }
@@ -2007,7 +1977,7 @@ void libvisio::VSDContentCollector::collectShape(unsigned id, unsigned level, un
       if (elem)
         m_fields.push_back(elem->getString(m_stencilNames));
       else
-        m_fields.push_back(WPXString());
+        m_fields.push_back(librevenge::RVNGString());
     }
 
     if (m_stencilShape->m_lineStyleId != MINUS_ONE)
@@ -2093,7 +2063,7 @@ void libvisio::VSDContentCollector::collectSplineEnd()
 }
 
 
-void libvisio::VSDContentCollector::collectText(unsigned level, const WPXBinaryData &textStream, TextFormat format)
+void libvisio::VSDContentCollector::collectText(unsigned level, const librevenge::RVNGBinaryData &textStream, TextFormat format)
 {
   _handleLevelChange(level);
 
@@ -2102,8 +2072,8 @@ void libvisio::VSDContentCollector::collectText(unsigned level, const WPXBinaryD
 }
 
 void libvisio::VSDContentCollector::collectParaIX(unsigned /* id */ , unsigned level, unsigned charCount, const boost::optional<double> &indFirst,
-    const boost::optional<double> &indLeft, const boost::optional<double> &indRight, const boost::optional<double> &spLine, const boost::optional<double> &spBefore,
-    const boost::optional<double> &spAfter, const boost::optional<unsigned char> &align, const boost::optional<unsigned> &flags)
+                                                  const boost::optional<double> &indLeft, const boost::optional<double> &indRight, const boost::optional<double> &spLine, const boost::optional<double> &spBefore,
+                                                  const boost::optional<double> &spAfter, const boost::optional<unsigned char> &align, const boost::optional<unsigned> &flags)
 {
   _handleLevelChange(level);
   VSDParaStyle format(m_defaultParaStyle);
@@ -2113,17 +2083,17 @@ void libvisio::VSDContentCollector::collectParaIX(unsigned /* id */ , unsigned l
 }
 
 void libvisio::VSDContentCollector::collectDefaultParaStyle(unsigned charCount, const boost::optional<double> &indFirst,
-    const boost::optional<double> &indLeft, const boost::optional<double> &indRight, const boost::optional<double> &spLine, const boost::optional<double> &spBefore,
-    const boost::optional<double> &spAfter, const boost::optional<unsigned char> &align, const boost::optional<unsigned> &flags)
+                                                            const boost::optional<double> &indLeft, const boost::optional<double> &indRight, const boost::optional<double> &spLine, const boost::optional<double> &spBefore,
+                                                            const boost::optional<double> &spAfter, const boost::optional<unsigned char> &align, const boost::optional<unsigned> &flags)
 {
   m_defaultParaStyle.override(VSDOptionalParaStyle(charCount, indFirst, indLeft, indRight, spLine, spBefore, spAfter, align, flags));
 }
 
 void libvisio::VSDContentCollector::collectCharIX(unsigned /* id */ , unsigned level, unsigned charCount,
-    const boost::optional<VSDName> &font, const boost::optional<Colour> &fontColour, const boost::optional<double> &fontSize, const boost::optional<bool> &bold,
-    const boost::optional<bool> &italic, const boost::optional<bool> &underline, const boost::optional<bool> &doubleunderline, const boost::optional<bool> &strikeout,
-    const boost::optional<bool> &doublestrikeout, const boost::optional<bool> &allcaps, const boost::optional<bool> &initcaps, const boost::optional<bool> &smallcaps,
-    const boost::optional<bool> &superscript, const boost::optional<bool> &subscript)
+                                                  const boost::optional<VSDName> &font, const boost::optional<Colour> &fontColour, const boost::optional<double> &fontSize, const boost::optional<bool> &bold,
+                                                  const boost::optional<bool> &italic, const boost::optional<bool> &underline, const boost::optional<bool> &doubleunderline, const boost::optional<bool> &strikeout,
+                                                  const boost::optional<bool> &doublestrikeout, const boost::optional<bool> &allcaps, const boost::optional<bool> &initcaps, const boost::optional<bool> &smallcaps,
+                                                  const boost::optional<bool> &superscript, const boost::optional<bool> &subscript)
 {
   _handleLevelChange(level);
   VSDCharStyle format(m_defaultCharStyle);
@@ -2134,19 +2104,19 @@ void libvisio::VSDContentCollector::collectCharIX(unsigned /* id */ , unsigned l
 }
 
 void libvisio::VSDContentCollector::collectDefaultCharStyle(unsigned charCount,
-    const boost::optional<VSDName> &font, const boost::optional<Colour> &fontColour, const boost::optional<double> &fontSize, const boost::optional<bool> &bold,
-    const boost::optional<bool> &italic, const boost::optional<bool> &underline, const boost::optional<bool> &doubleunderline, const boost::optional<bool> &strikeout,
-    const boost::optional<bool> &doublestrikeout, const boost::optional<bool> &allcaps, const boost::optional<bool> &initcaps, const boost::optional<bool> &smallcaps,
-    const boost::optional<bool> &superscript, const boost::optional<bool> &subscript)
+                                                            const boost::optional<VSDName> &font, const boost::optional<Colour> &fontColour, const boost::optional<double> &fontSize, const boost::optional<bool> &bold,
+                                                            const boost::optional<bool> &italic, const boost::optional<bool> &underline, const boost::optional<bool> &doubleunderline, const boost::optional<bool> &strikeout,
+                                                            const boost::optional<bool> &doublestrikeout, const boost::optional<bool> &allcaps, const boost::optional<bool> &initcaps, const boost::optional<bool> &smallcaps,
+                                                            const boost::optional<bool> &superscript, const boost::optional<bool> &subscript)
 {
   m_defaultCharStyle.override(VSDOptionalCharStyle(charCount, font, fontColour, fontSize, bold, italic, underline, doubleunderline, strikeout, doublestrikeout,
-                              allcaps, initcaps, smallcaps, superscript, subscript));
+                                                   allcaps, initcaps, smallcaps, superscript, subscript));
 }
 
 void libvisio::VSDContentCollector::collectTextBlock(unsigned level, const boost::optional<double> &leftMargin, const boost::optional<double> &rightMargin,
-    const boost::optional<double> &topMargin, const boost::optional<double> &bottomMargin, const boost::optional<unsigned char> &verticalAlign,
-    const boost::optional<bool> &isBgFilled, const boost::optional<Colour> &bgColour, const boost::optional<double> &defaultTabStop,
-    const boost::optional<unsigned char> &textDirection)
+                                                     const boost::optional<double> &topMargin, const boost::optional<double> &bottomMargin, const boost::optional<unsigned char> &verticalAlign,
+                                                     const boost::optional<bool> &isBgFilled, const boost::optional<Colour> &bgColour, const boost::optional<double> &defaultTabStop,
+                                                     const boost::optional<unsigned char> &textDirection)
 {
   _handleLevelChange(level);
   m_textBlockStyle.override(VSDOptionalTextBlockStyle(leftMargin, rightMargin, topMargin, bottomMargin, verticalAlign, isBgFilled, bgColour, defaultTabStop, textDirection));
@@ -2159,7 +2129,7 @@ void libvisio::VSDContentCollector::collectNameList(unsigned /*id*/, unsigned le
   m_names.clear();
 }
 
-void libvisio::VSDContentCollector::_convertDataToString(WPXString &result, const WPXBinaryData &data, TextFormat format)
+void libvisio::VSDContentCollector::_convertDataToString(librevenge::RVNGString &result, const librevenge::RVNGBinaryData &data, TextFormat format)
 {
   if (!data.size())
     return;
@@ -2168,11 +2138,11 @@ void libvisio::VSDContentCollector::_convertDataToString(WPXString &result, cons
   appendCharacters(result, tmpData, format);
 }
 
-void libvisio::VSDContentCollector::collectName(unsigned id, unsigned level, const WPXBinaryData &name, TextFormat format)
+void libvisio::VSDContentCollector::collectName(unsigned id, unsigned level, const librevenge::RVNGBinaryData &name, TextFormat format)
 {
   _handleLevelChange(level);
 
-  WPXString nameString;
+  librevenge::RVNGString nameString;
   _convertDataToString(nameString, name, format);
   m_names[id] = nameString;
 }
@@ -2195,17 +2165,17 @@ void libvisio::VSDContentCollector::collectStyleSheet(unsigned id, unsigned leve
 }
 
 void libvisio::VSDContentCollector::collectLineStyle(unsigned /* level */, const boost::optional<double> &strokeWidth, const boost::optional<Colour> &c,
-    const boost::optional<unsigned char> &linePattern, const boost::optional<unsigned char> &startMarker, const boost::optional<unsigned char> &endMarker,
-    const boost::optional<unsigned char> &lineCap)
+                                                     const boost::optional<unsigned char> &linePattern, const boost::optional<unsigned char> &startMarker, const boost::optional<unsigned char> &endMarker,
+                                                     const boost::optional<unsigned char> &lineCap)
 {
   VSDOptionalLineStyle lineStyle(strokeWidth, c, linePattern, startMarker, endMarker, lineCap);
   m_styles.addLineStyle(m_currentStyleSheet, lineStyle);
 }
 
 void libvisio::VSDContentCollector::collectFillStyle(unsigned /* level */, const boost::optional<Colour> &colourFG, const boost::optional<Colour> &colourBG,
-    const boost::optional<unsigned char> &fillPattern, const boost::optional<double> &fillFGTransparency, const boost::optional<double> &fillBGTransparency,
-    const boost::optional<unsigned char> &shadowPattern, const boost::optional<Colour> &shfgc, const boost::optional<double> &shadowOffsetX,
-    const boost::optional<double> &shadowOffsetY)
+                                                     const boost::optional<unsigned char> &fillPattern, const boost::optional<double> &fillFGTransparency, const boost::optional<double> &fillBGTransparency,
+                                                     const boost::optional<unsigned char> &shadowPattern, const boost::optional<Colour> &shfgc, const boost::optional<double> &shadowOffsetX,
+                                                     const boost::optional<double> &shadowOffsetY)
 {
   VSDOptionalFillStyle fillStyle(colourFG, colourBG, fillPattern, fillFGTransparency, fillBGTransparency, shfgc, shadowPattern, shadowOffsetX, shadowOffsetY);
   m_styles.addFillStyle(m_currentStyleSheet, fillStyle);
@@ -2213,16 +2183,16 @@ void libvisio::VSDContentCollector::collectFillStyle(unsigned /* level */, const
 }
 
 void libvisio::VSDContentCollector::collectFillStyle(unsigned level, const boost::optional<Colour> &colourFG, const boost::optional<Colour> &colourBG,
-    const boost::optional<unsigned char> &fillPattern, const boost::optional<double> &fillFGTransparency, const boost::optional<double> &fillBGTransparency,
-    const boost::optional<unsigned char> &shadowPattern, const boost::optional<Colour> &shfgc)
+                                                     const boost::optional<unsigned char> &fillPattern, const boost::optional<double> &fillFGTransparency, const boost::optional<double> &fillBGTransparency,
+                                                     const boost::optional<unsigned char> &shadowPattern, const boost::optional<Colour> &shfgc)
 {
   collectFillStyle(level, colourFG, colourBG, fillPattern, fillFGTransparency, fillBGTransparency, shadowPattern, shfgc, m_shadowOffsetX, m_shadowOffsetY);
 }
 
 void libvisio::VSDContentCollector::collectParaIXStyle(unsigned /* id */, unsigned /* level */, unsigned charCount,
-    const boost::optional<double> &indFirst, const boost::optional<double> &indLeft, const boost::optional<double> &indRight,
-    const boost::optional<double> &spLine, const boost::optional<double> &spBefore, const boost::optional<double> &spAfter,
-    const boost::optional<unsigned char> &align, const boost::optional<unsigned> &flags)
+                                                       const boost::optional<double> &indFirst, const boost::optional<double> &indLeft, const boost::optional<double> &indRight,
+                                                       const boost::optional<double> &spLine, const boost::optional<double> &spBefore, const boost::optional<double> &spAfter,
+                                                       const boost::optional<unsigned char> &align, const boost::optional<unsigned> &flags)
 {
   VSDOptionalParaStyle paraStyle(charCount, indFirst, indLeft, indRight, spLine, spBefore, spAfter, align, flags);
   m_styles.addParaStyle(m_currentStyleSheet, paraStyle);
@@ -2230,11 +2200,11 @@ void libvisio::VSDContentCollector::collectParaIXStyle(unsigned /* id */, unsign
 
 
 void libvisio::VSDContentCollector::collectCharIXStyle(unsigned /* id */, unsigned /* level */, unsigned charCount,
-    const boost::optional<VSDName> &font, const boost::optional<Colour> &fontColour, const boost::optional<double> &fontSize,
-    const boost::optional<bool> &bold, const boost::optional<bool> &italic, const boost::optional<bool> &underline,
-    const boost::optional<bool> &doubleunderline, const boost::optional<bool> &strikeout, const boost::optional<bool> &doublestrikeout,
-    const boost::optional<bool> &allcaps, const boost::optional<bool> &initcaps, const boost::optional<bool> &smallcaps,
-    const boost::optional<bool> &superscript, const boost::optional<bool> &subscript)
+                                                       const boost::optional<VSDName> &font, const boost::optional<Colour> &fontColour, const boost::optional<double> &fontSize,
+                                                       const boost::optional<bool> &bold, const boost::optional<bool> &italic, const boost::optional<bool> &underline,
+                                                       const boost::optional<bool> &doubleunderline, const boost::optional<bool> &strikeout, const boost::optional<bool> &doublestrikeout,
+                                                       const boost::optional<bool> &allcaps, const boost::optional<bool> &initcaps, const boost::optional<bool> &smallcaps,
+                                                       const boost::optional<bool> &superscript, const boost::optional<bool> &subscript)
 {
   VSDOptionalCharStyle charStyle(charCount, font, fontColour, fontSize, bold, italic, underline, doubleunderline, strikeout, doublestrikeout,
                                  allcaps, initcaps, smallcaps, superscript, subscript);
@@ -2242,15 +2212,15 @@ void libvisio::VSDContentCollector::collectCharIXStyle(unsigned /* id */, unsign
 }
 
 void libvisio::VSDContentCollector::collectTextBlockStyle(unsigned /* level */, const boost::optional<double> &leftMargin, const boost::optional<double> &rightMargin,
-    const boost::optional<double> &topMargin, const boost::optional<double> &bottomMargin, const boost::optional<unsigned char> &verticalAlign,
-    const boost::optional<bool> &isBgFilled, const boost::optional<Colour> &bgColour, const boost::optional<double> &defaultTabStop,
-    const boost::optional<unsigned char> &textDirection)
+                                                          const boost::optional<double> &topMargin, const boost::optional<double> &bottomMargin, const boost::optional<unsigned char> &verticalAlign,
+                                                          const boost::optional<bool> &isBgFilled, const boost::optional<Colour> &bgColour, const boost::optional<double> &defaultTabStop,
+                                                          const boost::optional<unsigned char> &textDirection)
 {
   VSDOptionalTextBlockStyle textBlockStyle(leftMargin, rightMargin, topMargin, bottomMargin, verticalAlign, isBgFilled, bgColour, defaultTabStop, textDirection);
   m_styles.addTextBlockStyle(m_currentStyleSheet, textBlockStyle);
 }
 
-void libvisio::VSDContentCollector::_lineProperties(const VSDLineStyle &style, WPXPropertyList &styleProps)
+void libvisio::VSDContentCollector::_lineProperties(const VSDLineStyle &style, librevenge::RVNGPropertyList &styleProps)
 {
   if (!style.pattern)
   {
@@ -2261,9 +2231,9 @@ void libvisio::VSDContentCollector::_lineProperties(const VSDLineStyle &style, W
   styleProps.insert("svg:stroke-width", m_scale*style.width);
   styleProps.insert("svg:stroke-color", getColourString(style.colour));
   if (style.colour.a)
-    styleProps.insert("svg:stroke-opacity", (1 - style.colour.a/255.0), WPX_PERCENT);
+    styleProps.insert("svg:stroke-opacity", (1 - style.colour.a/255.0), librevenge::RVNG_PERCENT);
   else
-    styleProps.insert("svg:stroke-opacity", 1.0, WPX_PERCENT);
+    styleProps.insert("svg:stroke-opacity", 1.0, librevenge::RVNG_PERCENT);
   switch (style.cap)
   {
   case 0:
@@ -2285,13 +2255,15 @@ void libvisio::VSDContentCollector::_lineProperties(const VSDLineStyle &style, W
   {
     styleProps.insert("draw:marker-start-viewbox", _linePropertiesMarkerViewbox(style.startMarker));
     styleProps.insert("draw:marker-start-path", _linePropertiesMarkerPath(style.startMarker));
-    styleProps.insert("draw:marker-start-width", m_scale*_linePropertiesMarkerScale(style.startMarker)*(0.1/(style.width*style.width+1)+2.54*style.width));
+    double w =  m_scale*_linePropertiesMarkerScale(style.startMarker)*(0.1/(style.width*style.width+1)+2.54*style.width);
+    styleProps.insert("draw:marker-start-width", std::max(w, 0.05));
   }
   if (style.endMarker > 0)
   {
     styleProps.insert("draw:marker-end-viewbox", _linePropertiesMarkerViewbox(style.endMarker));
     styleProps.insert("draw:marker-end-path", _linePropertiesMarkerPath(style.endMarker));
-    styleProps.insert("draw:marker-end-width", m_scale*_linePropertiesMarkerScale(style.endMarker)*(0.1/(style.width*style.width+1)+2.54*style.width));
+    double w =  m_scale*_linePropertiesMarkerScale(style.endMarker)*(0.1/(style.width*style.width+1)+2.54*style.width);
+    styleProps.insert("draw:marker-end-width", std::max(w, 0.05));
   }
 
   int dots1 = 0;
@@ -2455,10 +2427,10 @@ void libvisio::VSDContentCollector::_lineProperties(const VSDLineStyle &style, W
   {
     styleProps.insert("draw:stroke", "dash");
     styleProps.insert("draw:dots1", dots1);
-    styleProps.insert("draw:dots1-length", dots1len, WPX_PERCENT);
+    styleProps.insert("draw:dots1-length", dots1len, librevenge::RVNG_PERCENT);
     styleProps.insert("draw:dots2", dots2);
-    styleProps.insert("draw:dots2-length", dots2len, WPX_PERCENT);
-    styleProps.insert("draw:distance", gap, WPX_PERCENT);
+    styleProps.insert("draw:dots2-length", dots2len, librevenge::RVNG_PERCENT);
+    styleProps.insert("draw:distance", gap, librevenge::RVNG_PERCENT);
   }
   else
     // FIXME: later it will require special treatment for custom line patterns
@@ -2466,7 +2438,7 @@ void libvisio::VSDContentCollector::_lineProperties(const VSDLineStyle &style, W
     styleProps.insert("draw:stroke", "solid");
 }
 
-void libvisio::VSDContentCollector::_fillAndShadowProperties(const VSDFillStyle &style, WPXPropertyList &styleProps)
+void libvisio::VSDContentCollector::_fillAndShadowProperties(const VSDFillStyle &style, librevenge::RVNGPropertyList &styleProps)
 {
   if (style.pattern)
     styleProps.insert("svg:fill-rule", "evenodd");
@@ -2478,7 +2450,7 @@ void libvisio::VSDContentCollector::_fillAndShadowProperties(const VSDFillStyle 
     styleProps.insert("draw:fill", "solid");
     styleProps.insert("draw:fill-color", getColourString(style.fgColour));
     if (style.fgTransparency > 0)
-      styleProps.insert("draw:opacity", 1 - style.fgTransparency, WPX_PERCENT);
+      styleProps.insert("draw:opacity", 1 - style.fgTransparency, librevenge::RVNG_PERCENT);
     else
       styleProps.remove("draw:opacity");
   }
@@ -2490,14 +2462,14 @@ void libvisio::VSDContentCollector::_fillAndShadowProperties(const VSDFillStyle 
     styleProps.insert("draw:end-color", getColourString(style.bgColour));
     styleProps.remove("draw:opacity");
     if (style.bgTransparency > 0.0)
-      styleProps.insert("libwpg:start-opacity", 1 - style.bgTransparency, WPX_PERCENT);
+      styleProps.insert("librevenge:start-opacity", 1 - style.bgTransparency, librevenge::RVNG_PERCENT);
     else
-      styleProps.insert("libwpg:start-opacity", 1, WPX_PERCENT);
+      styleProps.insert("librevenge:start-opacity", 1, librevenge::RVNG_PERCENT);
     if (style.fgTransparency > 0.0)
-      styleProps.insert("libwpg:end-opacity", 1 - style.fgTransparency, WPX_PERCENT);
+      styleProps.insert("librevenge:end-opacity", 1 - style.fgTransparency, librevenge::RVNG_PERCENT);
     else
-      styleProps.insert("libwpg:end-opacity", 1, WPX_PERCENT);
-    styleProps.insert("draw:border", 0, WPX_PERCENT);
+      styleProps.insert("librevenge:end-opacity", 1, librevenge::RVNG_PERCENT);
+    styleProps.insert("draw:border", 0, librevenge::RVNG_PERCENT);
 
     if (style.pattern == 26)
       styleProps.insert("draw:angle", 90);
@@ -2512,16 +2484,16 @@ void libvisio::VSDContentCollector::_fillAndShadowProperties(const VSDFillStyle 
     styleProps.insert("draw:end-color", getColourString(style.fgColour));
     styleProps.remove("draw:opacity");
     if (style.bgTransparency > 0)
-      styleProps.insert("libwpg:start-opacity", 1 - style.bgTransparency, WPX_PERCENT);
+      styleProps.insert("librevenge:start-opacity", 1 - style.bgTransparency, librevenge::RVNG_PERCENT);
     else
-      styleProps.insert("libwpg:start-opacity", 1, WPX_PERCENT);
+      styleProps.insert("librevenge:start-opacity", 1, librevenge::RVNG_PERCENT);
     if (style.fgTransparency > 0)
-      styleProps.insert("libwpg:end-opacity", 1 - style.fgTransparency, WPX_PERCENT);
+      styleProps.insert("librevenge:end-opacity", 1 - style.fgTransparency, librevenge::RVNG_PERCENT);
     else
-      styleProps.insert("libwpg:end-opacity", 1, WPX_PERCENT);
-    styleProps.insert("draw:border", 0, WPX_PERCENT);
+      styleProps.insert("librevenge:end-opacity", 1, librevenge::RVNG_PERCENT);
+    styleProps.insert("draw:border", 0, librevenge::RVNG_PERCENT);
 
-    switch(style.pattern)
+    switch (style.pattern)
     {
     case 25:
       styleProps.insert("draw:angle", 270);
@@ -2553,21 +2525,21 @@ void libvisio::VSDContentCollector::_fillAndShadowProperties(const VSDFillStyle 
   {
     styleProps.insert("draw:fill", "gradient");
     styleProps.insert("draw:style", "rectangular");
-    styleProps.insert("svg:cx", 0.5, WPX_PERCENT);
-    styleProps.insert("svg:cy", 0.5, WPX_PERCENT);
+    styleProps.insert("svg:cx", 0.5, librevenge::RVNG_PERCENT);
+    styleProps.insert("svg:cy", 0.5, librevenge::RVNG_PERCENT);
     styleProps.insert("draw:start-color", getColourString(style.bgColour));
     styleProps.insert("draw:end-color", getColourString(style.fgColour));
     styleProps.remove("draw:opacity");
     if (style.bgTransparency > 0)
-      styleProps.insert("libwpg:start-opacity", 1 - style.bgTransparency, WPX_PERCENT);
+      styleProps.insert("librevenge:start-opacity", 1 - style.bgTransparency, librevenge::RVNG_PERCENT);
     else
-      styleProps.insert("libwpg:start-opacity", 1, WPX_PERCENT);
+      styleProps.insert("librevenge:start-opacity", 1, librevenge::RVNG_PERCENT);
     if (style.fgTransparency > 0)
-      styleProps.insert("libwpg:end-opacity", 1 - style.fgTransparency, WPX_PERCENT);
+      styleProps.insert("librevenge:end-opacity", 1 - style.fgTransparency, librevenge::RVNG_PERCENT);
     else
-      styleProps.insert("libwpg:end-opacity", 1, WPX_PERCENT);
+      styleProps.insert("librevenge:end-opacity", 1, librevenge::RVNG_PERCENT);
     styleProps.insert("draw:angle", 0);
-    styleProps.insert("draw:border", 0, WPX_PERCENT);
+    styleProps.insert("draw:border", 0, librevenge::RVNG_PERCENT);
   }
   else if (style.pattern >= 36 && style.pattern <= 40)
   {
@@ -2577,36 +2549,36 @@ void libvisio::VSDContentCollector::_fillAndShadowProperties(const VSDFillStyle 
     styleProps.insert("draw:end-color", getColourString(style.fgColour));
     styleProps.remove("draw:opacity");
     if (style.bgTransparency > 0)
-      styleProps.insert("libwpg:start-opacity", 1 - style.bgTransparency, WPX_PERCENT);
+      styleProps.insert("librevenge:start-opacity", 1 - style.bgTransparency, librevenge::RVNG_PERCENT);
     else
-      styleProps.insert("libwpg:start-opacity", 1, WPX_PERCENT);
+      styleProps.insert("librevenge:start-opacity", 1, librevenge::RVNG_PERCENT);
     if (style.fgTransparency > 0)
-      styleProps.insert("libwpg:end-opacity", 1 - style.fgTransparency, WPX_PERCENT);
+      styleProps.insert("librevenge:end-opacity", 1 - style.fgTransparency, librevenge::RVNG_PERCENT);
     else
-      styleProps.insert("libwpg:end-opacity", 1, WPX_PERCENT);
-    styleProps.insert("draw:border", 0, WPX_PERCENT);
+      styleProps.insert("librevenge:end-opacity", 1, librevenge::RVNG_PERCENT);
+    styleProps.insert("draw:border", 0, librevenge::RVNG_PERCENT);
 
-    switch(style.pattern)
+    switch (style.pattern)
     {
     case 36:
-      styleProps.insert("svg:cx", 0, WPX_PERCENT);
-      styleProps.insert("svg:cy", 0, WPX_PERCENT);
+      styleProps.insert("svg:cx", 0, librevenge::RVNG_PERCENT);
+      styleProps.insert("svg:cy", 0, librevenge::RVNG_PERCENT);
       break;
     case 37:
-      styleProps.insert("svg:cx", 1, WPX_PERCENT);
-      styleProps.insert("svg:cy", 0, WPX_PERCENT);
+      styleProps.insert("svg:cx", 1, librevenge::RVNG_PERCENT);
+      styleProps.insert("svg:cy", 0, librevenge::RVNG_PERCENT);
       break;
     case 38:
-      styleProps.insert("svg:cx", 0, WPX_PERCENT);
-      styleProps.insert("svg:cy", 1, WPX_PERCENT);
+      styleProps.insert("svg:cx", 0, librevenge::RVNG_PERCENT);
+      styleProps.insert("svg:cy", 1, librevenge::RVNG_PERCENT);
       break;
     case 39:
-      styleProps.insert("svg:cx", 1, WPX_PERCENT);
-      styleProps.insert("svg:cy", 1, WPX_PERCENT);
+      styleProps.insert("svg:cx", 1, librevenge::RVNG_PERCENT);
+      styleProps.insert("svg:cy", 1, librevenge::RVNG_PERCENT);
       break;
     case 40:
-      styleProps.insert("svg:cx", 0.5, WPX_PERCENT);
-      styleProps.insert("svg:cy", 0.5, WPX_PERCENT);
+      styleProps.insert("svg:cx", 0.5, librevenge::RVNG_PERCENT);
+      styleProps.insert("svg:cy", 0.5, librevenge::RVNG_PERCENT);
       break;
     }
   }
@@ -2623,9 +2595,18 @@ void libvisio::VSDContentCollector::_fillAndShadowProperties(const VSDFillStyle 
     styleProps.insert("draw:shadow-offset-x",style.shadowOffsetX != 0.0 ? style.shadowOffsetX : m_shadowOffsetX);
     styleProps.insert("draw:shadow-offset-y",style.shadowOffsetY != 0.0 ? -style.shadowOffsetY : -m_shadowOffsetY);
     styleProps.insert("draw:shadow-color",getColourString(style.shadowFgColour));
-    styleProps.insert("draw:shadow-opacity",(double)(1 - style.shadowFgColour.a/255.), WPX_PERCENT);
+    styleProps.insert("draw:shadow-opacity",(double)(1 - style.shadowFgColour.a/255.), librevenge::RVNG_PERCENT);
   }
 }
+
+void libvisio::VSDContentCollector::collectStyleThemeReference(unsigned /* level */, const boost::optional<long> &lineColour,
+                                                               const boost::optional<long> &fillColour, const boost::optional<long> &shadowColour,
+                                                               const boost::optional<long> &fontColour)
+{
+  VSDOptionalThemeReference themeReference(lineColour, fillColour, shadowColour, fontColour);
+  m_styles.addStyleThemeReference(m_currentStyleSheet, themeReference);
+}
+
 
 void libvisio::VSDContentCollector::collectFieldList(unsigned /* id */, unsigned level)
 {
@@ -2646,7 +2627,7 @@ void libvisio::VSDContentCollector::collectTextField(unsigned id, unsigned level
       if (nameId >= 0)
         m_fields.push_back(m_names[nameId]);
       else
-        m_fields.push_back(WPXString());
+        m_fields.push_back(librevenge::RVNGString());
     }
   }
   else
@@ -2668,7 +2649,7 @@ void libvisio::VSDContentCollector::collectNumericField(unsigned id, unsigned le
       element->setValue(number);
       if (format == 0xffff)
       {
-        std::map<unsigned, WPXString>::const_iterator iter = m_names.find(formatStringId);
+        std::map<unsigned, librevenge::RVNGString>::const_iterator iter = m_names.find(formatStringId);
         if (iter != m_names.end())
           parseFormatId(iter->second.cstr(), format);
       }
@@ -2729,6 +2710,11 @@ void libvisio::VSDContentCollector::_handleLevelChange(unsigned level)
   m_currentLevel = level;
 }
 
+void libvisio::VSDContentCollector::collectMetaData(const librevenge::RVNGPropertyList &metaData)
+{
+  m_pages.setMetaData(metaData);
+}
+
 void libvisio::VSDContentCollector::startPage(unsigned pageId)
 {
   if (m_isShapeStarted)
@@ -2759,6 +2745,10 @@ void libvisio::VSDContentCollector::endPage()
   {
     _handleLevelChange(0);
     _flushCurrentPage();
+    // TODO: this check does not prevent two pages mutually referencing themselves
+    // as their background pages. Or even longer cycle of pages.
+    if (m_currentPage.m_backgroundPageID == m_currentPage.m_currentPageID)
+      m_currentPage.m_backgroundPageID = MINUS_ONE;
     if (m_isBackgroundPage)
       m_pages.addBackgroundPage(m_currentPage);
     else
@@ -2773,7 +2763,7 @@ void libvisio::VSDContentCollector::endPages()
   m_pages.draw(m_painter);
 }
 
-bool libvisio::VSDContentCollector::parseFormatId( const char *formatString, unsigned short &result )
+bool libvisio::VSDContentCollector::parseFormatId(const char *formatString, unsigned short &result)
 {
   using namespace ::boost::spirit::classic;
 
@@ -2796,14 +2786,14 @@ bool libvisio::VSDContentCollector::parseFormatId( const char *formatString, uns
               )
             )>> end_p,
             // End grammar
-            space_p).full )
+            space_p).full)
   {
     return true;
   }
   return false;
 }
 
-void libvisio::VSDContentCollector::appendCharacters(WPXString &text, const std::vector<unsigned char> &characters, TextFormat format)
+void libvisio::VSDContentCollector::appendCharacters(librevenge::RVNGString &text, const std::vector<unsigned char> &characters, TextFormat format)
 {
   if (format == VSD_TEXT_UTF16)
     return appendCharacters(text, characters);
@@ -2864,7 +2854,7 @@ void libvisio::VSDContentCollector::appendCharacters(WPXString &text, const std:
         ucs4Character = 0x20;
       else
         ucs4Character = symbolmap[*iter - 0x20];
-      _appendUCS4(text, ucs4Character);
+      appendUCS4(text, ucs4Character);
     }
   }
   else
@@ -2928,7 +2918,7 @@ void libvisio::VSDContentCollector::appendCharacters(WPXString &text, const std:
           if (0x1e == ucs4Character)
             _appendField(text);
           else
-            _appendUCS4(text, ucs4Character);
+            appendUCS4(text, ucs4Character);
         }
       }
     }
@@ -2937,7 +2927,7 @@ void libvisio::VSDContentCollector::appendCharacters(WPXString &text, const std:
   }
 }
 
-void libvisio::VSDContentCollector::appendCharacters(WPXString &text, const std::vector<unsigned char> &characters)
+void libvisio::VSDContentCollector::appendCharacters(librevenge::RVNGString &text, const std::vector<unsigned char> &characters)
 {
   UErrorCode status = U_ZERO_ERROR;
   UConverter *conv = ucnv_open("UTF-16LE", &status);
@@ -2954,7 +2944,7 @@ void libvisio::VSDContentCollector::appendCharacters(WPXString &text, const std:
         if (0xfffc == ucs4Character)
           _appendField(text);
         else
-          _appendUCS4(text, ucs4Character);
+          appendUCS4(text, ucs4Character);
       }
     }
   }
@@ -2962,7 +2952,7 @@ void libvisio::VSDContentCollector::appendCharacters(WPXString &text, const std:
     ucnv_close(conv);
 }
 
-void libvisio::VSDContentCollector::_appendField(WPXString &text)
+void libvisio::VSDContentCollector::_appendField(librevenge::RVNGString &text)
 {
   if (m_fieldIndex < m_fields.size())
     text.append(m_fields[m_fieldIndex++].cstr());

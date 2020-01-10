@@ -1,43 +1,22 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* libvisio
- * Version: MPL 1.1 / GPLv2+ / LGPLv2+
+/*
+ * This file is part of the libvisio project.
  *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License or as specified alternatively below. You may obtain a copy of
- * the License at http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * Major Contributor(s):
- * Copyright (C) 2012 Fridrich Strba <fridrich.strba@bluewin.ch>
- *
- *
- * All Rights Reserved.
- *
- * For minor contributions see the git repository.
- *
- * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPLv2+"), or
- * the GNU Lesser General Public License Version 2 or later (the "LGPLv2+"),
- * in which case the provisions of the GPLv2+ or the LGPLv2+ are applicable
- * instead of those above.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 #include <string.h>
 #include <libxml/xmlIO.h>
 #include <libxml/xmlstring.h>
-#include <libwpd-stream/libwpd-stream.h>
+#include <librevenge-stream/librevenge-stream.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/spirit/include/classic.hpp>
 #include "VSDXMLParserBase.h"
 #include "libvisio_utils.h"
 #include "VSDContentCollector.h"
 #include "VSDStylesCollector.h"
-#include "VSDZipStream.h"
 #include "VSDXMLHelper.h"
 #include "VSDXMLTokenMap.h"
 
@@ -1110,11 +1089,11 @@ void libvisio::VSDXMLParserBase::readPage(xmlTextReaderPtr reader)
   if (id)
   {
     unsigned nId = (unsigned)xmlStringToLong(id);
-    unsigned backgroundPageID =  (unsigned)(bgndPage ? xmlStringToLong(bgndPage) : -1);
+    unsigned backgroundPageID = (unsigned)(bgndPage ? xmlStringToLong(bgndPage) : -1);
     bool isBackgroundPage = background ? xmlStringToBool(background) : false;
     m_isPageStarted = true;
     m_collector->startPage(nId);
-    m_collector->collectPage(nId, (unsigned)getElementDepth(reader), backgroundPageID, isBackgroundPage, pageName ? VSDName(WPXBinaryData(pageName, xmlStrlen(pageName)), VSD_TEXT_UTF8) : VSDName());
+    m_collector->collectPage(nId, (unsigned)getElementDepth(reader), backgroundPageID, isBackgroundPage, pageName ? VSDName(librevenge::RVNGBinaryData(pageName, xmlStrlen(pageName)), VSD_TEXT_UTF8) : VSDName());
   }
   if (id)
     xmlFree(id);
@@ -1161,7 +1140,7 @@ void libvisio::VSDXMLParserBase::readText(xmlTextReaderPtr reader)
     default:
       if (XML_READER_TYPE_TEXT == tokenType || XML_READER_TYPE_SIGNIFICANT_WHITESPACE == tokenType)
       {
-        WPXBinaryData tmpText;
+        librevenge::RVNGBinaryData tmpText;
         const unsigned char *tmpBuffer = xmlTextReaderConstValue(reader);
         int tmpLength = xmlStrlen(tmpBuffer);
         for (int i = 0; i < tmpLength && tmpBuffer[i]; ++i)
@@ -1263,11 +1242,11 @@ void libvisio::VSDXMLParserBase::readCharIX(xmlTextReaderPtr reader)
             if (iter != m_fonts.end())
               font = iter->second;
             else
-              font = VSDName(WPXBinaryData(stringValue, xmlStrlen(stringValue)), VSD_TEXT_UTF8);
+              font = VSDName(librevenge::RVNGBinaryData(stringValue, xmlStrlen(stringValue)), VSD_TEXT_UTF8);
           }
           catch (const XmlParserException &)
           {
-            font = VSDName(WPXBinaryData(stringValue, xmlStrlen(stringValue)), VSD_TEXT_UTF8);
+            font = VSDName(librevenge::RVNGBinaryData(stringValue, xmlStrlen(stringValue)), VSD_TEXT_UTF8);
           }
         }
         if (stringValue)
@@ -1382,8 +1361,8 @@ void libvisio::VSDXMLParserBase::readCharIX(xmlTextReaderPtr reader)
   {
     if (!ix || m_shape.m_charList.empty()) // character style 0 is the default character style
       m_shape.m_charStyle.override(VSDOptionalCharStyle(charCount, font, fontColour, fontSize, bold,
-                                   italic, underline, doubleunderline, strikeout, doublestrikeout,
-                                   allcaps, initcaps, smallcaps, superscript, subscript));
+                                                        italic, underline, doubleunderline, strikeout, doublestrikeout,
+                                                        allcaps, initcaps, smallcaps, superscript, subscript));
 
     m_shape.m_charList.addCharIX(ix, level, charCount, font, fontColour, fontSize, bold, italic,
                                  underline, doubleunderline, strikeout, doublestrikeout, allcaps,
@@ -1470,7 +1449,7 @@ void libvisio::VSDXMLParserBase::readParaIX(xmlTextReaderPtr reader)
   {
     if (!ix || m_shape.m_paraList.empty()) // paragraph style 0 is the default paragraph style
       m_shape.m_paraStyle.override(VSDOptionalParaStyle(charCount, indFirst, indLeft, indRight,
-                                   spLine, spBefore, spAfter, align, flags));
+                                                        spLine, spBefore, spAfter, align, flags));
 
     m_shape.m_paraList.addParaIX(ix, level, charCount, indFirst, indLeft, indRight,
                                  spLine, spBefore, spAfter, align, flags);
@@ -1486,7 +1465,7 @@ void libvisio::VSDXMLParserBase::readStyleSheet(xmlTextReaderPtr reader)
   if (id)
   {
     unsigned nId = (unsigned)xmlStringToLong(id);
-    unsigned nLineStyle =  (unsigned)(lineStyle ? xmlStringToLong(lineStyle) : -1);
+    unsigned nLineStyle = (unsigned)(lineStyle ? xmlStringToLong(lineStyle) : -1);
     unsigned nFillStyle = (unsigned)(fillStyle ? xmlStringToLong(fillStyle) : -1);
     unsigned nTextStyle = (unsigned)(textStyle ? xmlStringToLong(textStyle) : -1);
     m_collector->collectStyleSheet(nId, (unsigned)getElementDepth(reader), nLineStyle, nFillStyle, nTextStyle);
@@ -1928,7 +1907,7 @@ int libvisio::VSDXMLParserBase::readNURBSData(boost::optional<NURBSData> &data, 
                          real_p[assign_a(point.second)])[push_back_a(tmpData.points,point)]
                         >> (',' | eps_p) >>
                         real_p[push_back_a(tmpData.knots)] >> (',' | eps_p) >>
-                        real_p[push_back_a(tmpData.weights)]), ',' | eps_p ))
+                        real_p[push_back_a(tmpData.weights)]), ',' | eps_p))
                  ) >> ')' >> end_p,
                  //  End grammar
                  space_p).full;
@@ -1936,7 +1915,7 @@ int libvisio::VSDXMLParserBase::readNURBSData(boost::optional<NURBSData> &data, 
     xmlFree(formula);
   }
 
-  if( !bRes )
+  if (!bRes)
     return -1;
   data = tmpData;
   return 1;
@@ -1966,7 +1945,7 @@ int libvisio::VSDXMLParserBase::readPolylineData(boost::optional<PolylineData> &
                    (list_p(
                       (
                         (real_p[assign_a(point.first)] >> (',' | eps_p) >>
-                         real_p[assign_a(point.second)])[push_back_a(tmpData.points,point)]), ',' | eps_p ))
+                         real_p[assign_a(point.second)])[push_back_a(tmpData.points,point)]), ',' | eps_p))
                  ) >> ')' >> end_p,
                  //  End grammar
                  space_p).full;
@@ -1974,7 +1953,7 @@ int libvisio::VSDXMLParserBase::readPolylineData(boost::optional<PolylineData> &
     xmlFree(formula);
   }
 
-  if( !bRes )
+  if (!bRes)
     return -1;
   data = tmpData;
   return 1;
@@ -2089,31 +2068,6 @@ int libvisio::VSDXMLParserBase::readByteData(boost::optional<unsigned char> &val
   if (!!tmpValue)
     value = (unsigned char) tmpValue.get();
   return ret;
-}
-
-int libvisio::VSDXMLParserBase::readColourData(Colour &value, xmlTextReaderPtr reader)
-{
-  xmlChar *stringValue = readStringData(reader);
-  if (stringValue)
-  {
-    VSD_DEBUG_MSG(("VSDXMLParserBase::readColourData stringValue %s\n", (const char *)stringValue));
-    if (!xmlStrEqual(stringValue, BAD_CAST("Themed")))
-    {
-      try
-      {
-        Colour tmpColour = xmlStringToColour(stringValue);
-        value = tmpColour;
-      }
-      catch (const XmlParserException &)
-      {
-        xmlFree(stringValue);
-        throw XmlParserException();
-      }
-    }
-    xmlFree(stringValue);
-    return 1;
-  }
-  return -1;
 }
 
 int libvisio::VSDXMLParserBase::readExtendedColourData(Colour &value, long &idx, xmlTextReaderPtr reader)

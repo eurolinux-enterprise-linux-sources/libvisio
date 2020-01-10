@@ -1,31 +1,10 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* libvisio
- * Version: MPL 1.1 / GPLv2+ / LGPLv2+
+/*
+ * This file is part of the libvisio project.
  *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License or as specified alternatively below. You may obtain a copy of
- * the License at http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * Major Contributor(s):
- * Copyright (C) 2011 Fridrich Strba <fridrich.strba@bluewin.ch>
- * Copyright (C) 2011 Eilidh McAdam <tibbylickle@gmail.com>
- *
- *
- * All Rights Reserved.
- *
- * For minor contributions see the git repository.
- *
- * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPLv2+"), or
- * the GNU Lesser General Public License Version 2 or later (the "LGPLv2+"),
- * in which case the provisions of the GPLv2+ or the LGPLv2+ are applicable
- * instead of those above.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 #include <stack>
@@ -34,14 +13,15 @@
 
 libvisio::VSDStyles::VSDStyles() :
   m_lineStyles(), m_fillStyles(), m_textBlockStyles(), m_charStyles(), m_paraStyles(),
-  m_lineStyleMasters(), m_fillStyleMasters(), m_textStyleMasters()
+  m_themeRefs(), m_lineStyleMasters(), m_fillStyleMasters(), m_textStyleMasters()
 {
 }
 
 libvisio::VSDStyles::VSDStyles(const libvisio::VSDStyles &styles) :
   m_lineStyles(styles.m_lineStyles), m_fillStyles(styles.m_fillStyles), m_textBlockStyles(styles.m_textBlockStyles),
-  m_charStyles(styles.m_charStyles), m_paraStyles(styles.m_paraStyles), m_lineStyleMasters(styles.m_lineStyleMasters),
-  m_fillStyleMasters(styles.m_fillStyleMasters), m_textStyleMasters(styles.m_textStyleMasters)
+  m_charStyles(styles.m_charStyles), m_paraStyles(styles.m_paraStyles), m_themeRefs(styles.m_themeRefs),
+  m_lineStyleMasters(styles.m_lineStyleMasters), m_fillStyleMasters(styles.m_fillStyleMasters),
+  m_textStyleMasters(styles.m_textStyleMasters)
 {
 }
 
@@ -58,6 +38,7 @@ libvisio::VSDStyles &libvisio::VSDStyles::operator=(const libvisio::VSDStyles &s
     m_textBlockStyles = styles.m_textBlockStyles;
     m_charStyles = styles.m_charStyles;
     m_paraStyles = styles.m_paraStyles;
+    m_themeRefs = styles.m_themeRefs;
 
     m_lineStyleMasters = styles.m_lineStyleMasters;
     m_fillStyleMasters = styles.m_fillStyleMasters;
@@ -89,6 +70,11 @@ void libvisio::VSDStyles::addCharStyle(unsigned textStyleIndex, const VSDOptiona
 void libvisio::VSDStyles::addParaStyle(unsigned textStyleIndex, const VSDOptionalParaStyle &paraStyle)
 {
   m_paraStyles[textStyleIndex] = paraStyle;
+}
+
+void libvisio::VSDStyles::addStyleThemeReference(unsigned styleIndex, const VSDOptionalThemeReference &themeRef)
+{
+  m_themeRefs[styleIndex] = themeRef;
 }
 
 void libvisio::VSDStyles::addLineStyleMaster(unsigned lineStyleIndex, unsigned lineStyleMaster)
@@ -128,13 +114,6 @@ libvisio::VSDOptionalLineStyle libvisio::VSDStyles::getOptionalLineStyle(unsigne
       lineStyle.override(iter->second);
     styleIdStack.pop();
   }
-  return lineStyle;
-}
-
-libvisio::VSDLineStyle libvisio::VSDStyles::getLineStyle(unsigned lineStyleIndex) const
-{
-  VSDLineStyle lineStyle;
-  lineStyle.override(getOptionalLineStyle(lineStyleIndex));
   return lineStyle;
 }
 
@@ -195,13 +174,6 @@ libvisio::VSDOptionalTextBlockStyle libvisio::VSDStyles::getOptionalTextBlockSty
   return textBlockStyle;
 }
 
-libvisio::VSDTextBlockStyle libvisio::VSDStyles::getTextBlockStyle(unsigned textStyleIndex) const
-{
-  VSDTextBlockStyle textBlockStyle;
-  textBlockStyle.override(getOptionalTextBlockStyle(textStyleIndex));
-  return textBlockStyle;
-}
-
 libvisio::VSDOptionalCharStyle libvisio::VSDStyles::getOptionalCharStyle(unsigned textStyleIndex) const
 {
   VSDOptionalCharStyle charStyle;
@@ -224,13 +196,6 @@ libvisio::VSDOptionalCharStyle libvisio::VSDStyles::getOptionalCharStyle(unsigne
       charStyle.override(iter->second);
     styleIdStack.pop();
   }
-  return charStyle;
-}
-
-libvisio::VSDCharStyle libvisio::VSDStyles::getCharStyle(unsigned textStyleIndex) const
-{
-  VSDCharStyle charStyle;
-  charStyle.override(getOptionalCharStyle(textStyleIndex));
   return charStyle;
 }
 
@@ -259,11 +224,12 @@ libvisio::VSDOptionalParaStyle libvisio::VSDStyles::getOptionalParaStyle(unsigne
   return paraStyle;
 }
 
-libvisio::VSDParaStyle libvisio::VSDStyles::getParaStyle(unsigned textStyleIndex) const
+libvisio::VSDOptionalThemeReference libvisio::VSDStyles::getOptionalThemeReference(unsigned styleIndex) const
 {
-  VSDParaStyle paraStyle;
-  paraStyle.override(getOptionalParaStyle(textStyleIndex));
-  return paraStyle;
+  VSDOptionalThemeReference themeReference;
+  if (MINUS_ONE == styleIndex)
+    return themeReference;
+  return themeReference;
 }
 
 /* vim:set shiftwidth=2 softtabstop=2 expandtab: */

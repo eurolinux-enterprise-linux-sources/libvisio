@@ -1,47 +1,23 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* libvisio
- * Version: MPL 1.1 / GPLv2+ / LGPLv2+
+/*
+ * This file is part of the libvisio project.
  *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License or as specified alternatively below. You may obtain a copy of
- * the License at http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * Major Contributor(s):
- * Copyright (C) 2011 Fridrich Strba <fridrich.strba@bluewin.ch>
- * Copyright (C) 2011 Eilidh McAdam <tibbylickle@gmail.com>
- *
- *
- * All Rights Reserved.
- *
- * For minor contributions see the git repository.
- *
- * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPLv2+"), or
- * the GNU Lesser General Public License Version 2 or later (the "LGPLv2+"),
- * in which case the provisions of the GPLv2+ or the LGPLv2+ are applicable
- * instead of those above.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 #include <vector>
 #include <string>
 #include <algorithm> // std::count
+#include <cstdarg>
+#include <cstdio>
 #include "VSDInternalStream.h"
 #include "libvisio_utils.h"
 
-#include <boost/archive/iterators/binary_from_base64.hpp>
-#include <boost/archive/iterators/remove_whitespace.hpp>
-#include <boost/archive/iterators/transform_width.hpp>
-#include <boost/range/iterator_range.hpp>
-
-uint8_t libvisio::readU8(WPXInputStream *input)
+uint8_t libvisio::readU8(librevenge::RVNGInputStream *input)
 {
-  if (!input || input->atEOS())
+  if (!input || input->isEnd())
   {
     VSD_DEBUG_MSG(("Throwing EndOfStreamException\n"));
     throw EndOfStreamException();
@@ -55,9 +31,9 @@ uint8_t libvisio::readU8(WPXInputStream *input)
   throw EndOfStreamException();
 }
 
-uint16_t libvisio::readU16(WPXInputStream *input)
+uint16_t libvisio::readU16(librevenge::RVNGInputStream *input)
 {
-  if (!input || input->atEOS())
+  if (!input || input->isEnd())
   {
     VSD_DEBUG_MSG(("Throwing EndOfStreamException\n"));
     throw EndOfStreamException();
@@ -71,14 +47,14 @@ uint16_t libvisio::readU16(WPXInputStream *input)
   throw EndOfStreamException();
 }
 
-int16_t libvisio::readS16(WPXInputStream *input)
+int16_t libvisio::readS16(librevenge::RVNGInputStream *input)
 {
   return (int16_t)readU16(input);
 }
 
-uint32_t libvisio::readU32(WPXInputStream *input)
+uint32_t libvisio::readU32(librevenge::RVNGInputStream *input)
 {
-  if (!input || input->atEOS())
+  if (!input || input->isEnd())
   {
     VSD_DEBUG_MSG(("Throwing EndOfStreamException\n"));
     throw EndOfStreamException();
@@ -92,14 +68,14 @@ uint32_t libvisio::readU32(WPXInputStream *input)
   throw EndOfStreamException();
 }
 
-int32_t libvisio::readS32(WPXInputStream *input)
+int32_t libvisio::readS32(librevenge::RVNGInputStream *input)
 {
   return (int32_t)readU32(input);
 }
 
-uint64_t libvisio::readU64(WPXInputStream *input)
+uint64_t libvisio::readU64(librevenge::RVNGInputStream *input)
 {
-  if (!input || input->atEOS())
+  if (!input || input->isEnd())
   {
     VSD_DEBUG_MSG(("Throwing EndOfStreamException\n"));
     throw EndOfStreamException();
@@ -113,7 +89,7 @@ uint64_t libvisio::readU64(WPXInputStream *input)
   throw EndOfStreamException();
 }
 
-double libvisio::readDouble(WPXInputStream *input)
+double libvisio::readDouble(librevenge::RVNGInputStream *input)
 {
   union
   {
@@ -126,32 +102,34 @@ double libvisio::readDouble(WPXInputStream *input)
   return tmpUnion.d;
 }
 
-void libvisio::appendFromBase64(WPXBinaryData &data, const unsigned char *base64Data, size_t base64DataLength)
+const librevenge::RVNGString libvisio::getColourString(const Colour &c)
 {
-  std::string base64String((const char *)base64Data, base64DataLength);
-  unsigned numPadding = std::count(base64String.begin(), base64String.end(), '=');
-  std::replace(base64String.begin(),base64String.end(),'=','A'); // replace '=' by base64 encoding of '\0'
-  typedef boost::archive::iterators::transform_width<
-  boost::archive::iterators::binary_from_base64<
-  boost::archive::iterators::remove_whitespace< std::string::const_iterator > >, 8, 6 > base64_decoder;
-
-  std::vector<unsigned char> buffer;
-  std::copy(base64_decoder(base64String.begin()), base64_decoder(base64String.end()), std::back_inserter(buffer));
-  if (!buffer.empty())
-  {
-    buffer.erase(buffer.end()-numPadding,buffer.end());  // erase padding '\0' characters
-    if (!buffer.empty())
-      data.append(&buffer[0], buffer.size());
-  }
-}
-
-const ::WPXString libvisio::getColourString(const Colour &c)
-{
-  ::WPXString sColour;
+  librevenge::RVNGString sColour;
   sColour.sprintf("#%.2x%.2x%.2x", c.r, c.g, c.b);
   return sColour;
 }
 
+void libvisio::appendUCS4(librevenge::RVNGString &text, UChar32 ucs4Character)
+{
+  // Convert carriage returns to new line characters
+  // Writerperfect/LibreOffice will replace them by <text:line-break>
+  if (ucs4Character == (UChar32) 0x0d || ucs4Character == (UChar32) 0x0e)
+    ucs4Character = (UChar32) '\n';
 
+  unsigned char outbuf[U8_MAX_LENGTH+1];
+  int i = 0;
+  U8_APPEND_UNSAFE(&outbuf[0], i, ucs4Character);
+  outbuf[i] = 0;
+
+  text.append((char *)outbuf);
+}
+
+void libvisio::debugPrint(const char *format, ...)
+{
+  va_list args;
+  va_start(args, format);
+  std::vfprintf(stderr, format, args);
+  va_end(args);
+}
 
 /* vim:set shiftwidth=2 softtabstop=2 expandtab: */
