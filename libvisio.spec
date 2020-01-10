@@ -1,8 +1,8 @@
 %global apiversion 0.1
 
 Name: libvisio
-Version: 0.1.1
-Release: 2%{?dist}
+Version: 0.1.6
+Release: 1%{?dist}
 Summary: A library for import of Microsoft Visio diagrams
 
 License: MPLv2.0
@@ -15,18 +15,14 @@ BuildRequires: gperf
 BuildRequires: help2man
 BuildRequires: perl
 BuildRequires: pkgconfig(cppunit)
-BuildRequires: pkgconfig(icu-i18n)
+BuildRequires: pkgconfig(icu-uc)
 BuildRequires: pkgconfig(librevenge-0.0)
 BuildRequires: pkgconfig(libxml-2.0)
-BuildRequires: pkgconfig(zlib)
-
-Patch0: 0001-add-missing-breaks.patch
-Patch1: 0001-define-more-needed-namespaces.patch
 
 %description
 %{name} is library providing ability to interpret and import
 Microsoft Visio diagrams into various applications. You can find it
-being used in libreoffice.
+being used in LibreOffice.
 
 %package devel
 Summary: Development files for %{name}
@@ -62,20 +58,17 @@ sed -i \
     libtool
 make %{?_smp_mflags}
 
-export LD_LIBRARY_PATH=`pwd`/src/lib/.libs${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
-help2man -N -n 'debug the conversion library' -o vsd2raw.1 ./src/conv/raw/.libs/vsd2raw
-help2man -N -n 'convert Visio document into SVG' -o vsd2xhtml.1 ./src/conv/svg/.libs/vsd2xhtml
-help2man -N -n 'convert Visio document into plain text' -o vsd2text.1 ./src/conv/text/.libs/vsd2text
-help2man -N -n 'debug the conversion library' -o vss2raw.1 ./src/conv/raw/.libs/vss2raw
-help2man -N -n 'convert Visio stencil into SVG' -o vss2xhtml.1 ./src/conv/svg/.libs/vss2xhtml
-help2man -N -n 'convert Visio stencil into plain text' -o vss2text.1 ./src/conv/text/.libs/vss2text
-
 %install
 make install DESTDIR=%{buildroot}
 rm -f %{buildroot}/%{_libdir}/*.la
 # rhbz#1001240 we install API docs directly from build
 rm -rf %{buildroot}/%{_docdir}/%{name}
 
+# generate and install man pages
+export LD_LIBRARY_PATH=%{buildroot}%{_libdir}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+for tool in vsd2raw vss2text vsd2xhtml vss2raw vsd2text vss2xhtml; do
+    help2man -N -S '%{name} %{version}' -o ${tool}.1 %{buildroot}%{_bindir}/${tool}
+done
 install -m 0755 -d %{buildroot}/%{_mandir}/man1
 install -m 0644 vsd2*.1 vss2*.1 %{buildroot}/%{_mandir}/man1
 
@@ -84,12 +77,11 @@ install -m 0644 vsd2*.1 vss2*.1 %{buildroot}/%{_mandir}/man1
 
 %check
 export LD_LIBRARY_PATH=%{buildroot}%{_libdir}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
-# Workaround time formatting problem in the test
-export TZ='CET'
 make check %{?_smp_mflags}
 
 %files
-%doc AUTHORS COPYING.*
+%doc AUTHORS README NEWS
+%license COPYING.*
 %{_libdir}/%{name}-%{apiversion}.so.*
 
 %files devel
@@ -99,7 +91,7 @@ make check %{?_smp_mflags}
 %{_libdir}/pkgconfig/%{name}-%{apiversion}.pc
 
 %files doc
-%doc COPYING.*
+%license COPYING.*
 %doc docs/doxygen/html
 
 %files tools
@@ -117,6 +109,9 @@ make check %{?_smp_mflags}
 %{_mandir}/man1/vss2xhtml.1*
 
 %changelog
+* Sat Oct 21 2017 David Tardon <dtardon@redhat.com> - 0.1.6-1
+- Resolves: rhbz#1477219 rebase to 0.1.6
+
 * Mon May 04 2015 David Tardon <dtardon@redhat.com> - 0.1.1-2
 - Related: rhbz#1207761 include some upstream fixes
 

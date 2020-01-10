@@ -11,32 +11,35 @@
 #include <libxml/xmlIO.h>
 #include <libxml/xmlstring.h>
 #include <librevenge-stream/librevenge-stream.h>
-#include <boost/algorithm/string.hpp>
-#include <boost/spirit/include/classic.hpp>
+
+#include <boost/phoenix.hpp>
+#include <boost/spirit/include/qi.hpp>
+
 #include "VSDXMLParserBase.h"
 #include "libvisio_utils.h"
+#include "libvisio_xml.h"
 #include "VSDContentCollector.h"
 #include "VSDStylesCollector.h"
 #include "VSDXMLHelper.h"
 #include "VSDXMLTokenMap.h"
 
+using std::shared_ptr;
 
 libvisio::VSDXMLParserBase::VSDXMLParserBase()
-  : m_collector(), m_stencils(), m_currentStencil(0), m_shape(),
+  : m_collector(), m_stencils(), m_currentStencil(), m_shape(),
     m_isStencilStarted(false), m_currentStencilID(MINUS_ONE),
     m_extractStencils(false), m_isInStyles(false), m_currentLevel(0),
     m_currentShapeLevel(0), m_colours(), m_fieldList(), m_shapeList(),
     m_currentBinaryData(), m_shapeStack(), m_shapeLevelStack(),
-    m_isShapeStarted(false), m_isPageStarted(false), m_currentGeometryList(0),
-    m_currentGeometryListIndex(MINUS_ONE), m_fonts()
+    m_isShapeStarted(false), m_isPageStarted(false), m_currentGeometryList(nullptr),
+    m_currentGeometryListIndex(MINUS_ONE), m_fonts(), m_currentTabSet(nullptr),
+    m_watcher(nullptr)
 {
   initColours();
 }
 
 libvisio::VSDXMLParserBase::~VSDXMLParserBase()
 {
-  if (m_currentStencil)
-    delete m_currentStencil;
 }
 
 // Common functions
@@ -54,15 +57,15 @@ void libvisio::VSDXMLParserBase::readGeometry(xmlTextReaderPtr reader)
 
   if (xmlTextReaderIsEmptyElement(reader))
   {
-    xmlChar *delString = xmlTextReaderGetAttribute(reader, BAD_CAST("Del"));
+    const shared_ptr<xmlChar> delString(xmlTextReaderGetAttribute(reader, BAD_CAST("Del")), xmlFree);
     if (delString)
     {
       if (xmlStringToBool(delString))
       {
         m_currentGeometryList->clear();
         m_shape.m_geometries.erase(ix);
+        m_currentGeometryList = nullptr;
       }
-      xmlFree(delString);
     }
     return;
   }
@@ -159,7 +162,7 @@ void libvisio::VSDXMLParserBase::readGeometry(xmlTextReaderPtr reader)
       break;
     }
   }
-  while (((XML_GEOM != tokenId && XML_SECTION != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_GEOM != tokenId && XML_SECTION != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
   if (ret == 1)
     m_currentGeometryList->addGeometry(0, level+1, noFill, noLine, noShow);
 }
@@ -175,12 +178,11 @@ void libvisio::VSDXMLParserBase::readMoveTo(xmlTextReaderPtr reader)
 
   if (xmlTextReaderIsEmptyElement(reader))
   {
-    xmlChar *delString = xmlTextReaderGetAttribute(reader, BAD_CAST("Del"));
+    const shared_ptr<xmlChar> delString(xmlTextReaderGetAttribute(reader, BAD_CAST("Del")), xmlFree);
     if (delString)
     {
       if (xmlStringToBool(delString))
         m_currentGeometryList->addEmpty(ix, level);
-      xmlFree(delString);
     }
     return;
   }
@@ -210,7 +212,7 @@ void libvisio::VSDXMLParserBase::readMoveTo(xmlTextReaderPtr reader)
       break;
     }
   }
-  while (((XML_MOVETO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_MOVETO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
   if (ret == 1)
     m_currentGeometryList->addMoveTo(ix, level, x, y);
 }
@@ -226,12 +228,11 @@ void libvisio::VSDXMLParserBase::readLineTo(xmlTextReaderPtr reader)
 
   if (xmlTextReaderIsEmptyElement(reader))
   {
-    xmlChar *delString = xmlTextReaderGetAttribute(reader, BAD_CAST("Del"));
+    const shared_ptr<xmlChar> delString(xmlTextReaderGetAttribute(reader, BAD_CAST("Del")), xmlFree);
     if (delString)
     {
       if (xmlStringToBool(delString))
         m_currentGeometryList->addEmpty(ix, level);
-      xmlFree(delString);
     }
     return;
   }
@@ -261,7 +262,7 @@ void libvisio::VSDXMLParserBase::readLineTo(xmlTextReaderPtr reader)
       break;
     }
   }
-  while (((XML_LINETO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_LINETO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
   if (ret == 1)
     m_currentGeometryList->addLineTo(ix, level, x, y);
 }
@@ -277,12 +278,11 @@ void libvisio::VSDXMLParserBase::readArcTo(xmlTextReaderPtr reader)
 
   if (xmlTextReaderIsEmptyElement(reader))
   {
-    xmlChar *delString = xmlTextReaderGetAttribute(reader, BAD_CAST("Del"));
+    const shared_ptr<xmlChar> delString(xmlTextReaderGetAttribute(reader, BAD_CAST("Del")), xmlFree);
     if (delString)
     {
       if (xmlStringToBool(delString))
         m_currentGeometryList->addEmpty(ix, level);
-      xmlFree(delString);
     }
     return;
   }
@@ -316,7 +316,7 @@ void libvisio::VSDXMLParserBase::readArcTo(xmlTextReaderPtr reader)
       break;
     }
   }
-  while (((XML_ARCTO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_ARCTO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
   if (ret == 1)
     m_currentGeometryList->addArcTo(ix, level, x, y, a);
 }
@@ -332,12 +332,11 @@ void libvisio::VSDXMLParserBase::readEllipticalArcTo(xmlTextReaderPtr reader)
 
   if (xmlTextReaderIsEmptyElement(reader))
   {
-    xmlChar *delString = xmlTextReaderGetAttribute(reader, BAD_CAST("Del"));
+    const shared_ptr<xmlChar> delString(xmlTextReaderGetAttribute(reader, BAD_CAST("Del")), xmlFree);
     if (delString)
     {
       if (xmlStringToBool(delString))
         m_currentGeometryList->addEmpty(ix, level);
-      xmlFree(delString);
     }
     return;
   }
@@ -383,7 +382,7 @@ void libvisio::VSDXMLParserBase::readEllipticalArcTo(xmlTextReaderPtr reader)
       break;
     }
   }
-  while (((XML_ELLIPTICALARCTO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_ELLIPTICALARCTO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
   if (ret == 1)
     m_currentGeometryList->addEllipticalArcTo(ix, level, x, y, a, b, c, d);
 }
@@ -399,12 +398,11 @@ void libvisio::VSDXMLParserBase::readEllipse(xmlTextReaderPtr reader)
 
   if (xmlTextReaderIsEmptyElement(reader))
   {
-    xmlChar *delString = xmlTextReaderGetAttribute(reader, BAD_CAST("Del"));
+    const shared_ptr<xmlChar> delString(xmlTextReaderGetAttribute(reader, BAD_CAST("Del")), xmlFree);
     if (delString)
     {
       if (xmlStringToBool(delString))
         m_currentGeometryList->addEmpty(ix, level);
-      xmlFree(delString);
     }
     return;
   }
@@ -450,7 +448,7 @@ void libvisio::VSDXMLParserBase::readEllipse(xmlTextReaderPtr reader)
       break;
     }
   }
-  while (((XML_ELLIPSE != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_ELLIPSE != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
   if (ret == 1)
     m_currentGeometryList->addEllipse(ix, level, x, y, a, b, c, d);
 }
@@ -466,12 +464,11 @@ void libvisio::VSDXMLParserBase::readNURBSTo(xmlTextReaderPtr reader)
 
   if (xmlTextReaderIsEmptyElement(reader))
   {
-    xmlChar *delString = xmlTextReaderGetAttribute(reader, BAD_CAST("Del"));
+    const shared_ptr<xmlChar> delString(xmlTextReaderGetAttribute(reader, BAD_CAST("Del")), xmlFree);
     if (delString)
     {
       if (xmlStringToBool(delString))
         m_currentGeometryList->addEmpty(ix, level);
-      xmlFree(delString);
     }
     return;
   }
@@ -521,7 +518,7 @@ void libvisio::VSDXMLParserBase::readNURBSTo(xmlTextReaderPtr reader)
       break;
     }
   }
-  while (((XML_NURBSTO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_NURBSTO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
 
   if (ret == 1)
     m_currentGeometryList->addNURBSTo(ix, level, x, y, knot, knotPrev, weight, weightPrev, nurbsData);
@@ -538,12 +535,11 @@ void libvisio::VSDXMLParserBase::readPolylineTo(xmlTextReaderPtr reader)
 
   if (xmlTextReaderIsEmptyElement(reader))
   {
-    xmlChar *delString = xmlTextReaderGetAttribute(reader, BAD_CAST("Del"));
+    const shared_ptr<xmlChar> delString(xmlTextReaderGetAttribute(reader, BAD_CAST("Del")), xmlFree);
     if (delString)
     {
       if (xmlStringToBool(delString))
         m_currentGeometryList->addEmpty(ix, level);
-      xmlFree(delString);
     }
     return;
   }
@@ -577,7 +573,7 @@ void libvisio::VSDXMLParserBase::readPolylineTo(xmlTextReaderPtr reader)
       break;
     }
   }
-  while (((XML_POLYLINETO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_POLYLINETO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
   if (ret == 1)
     m_currentGeometryList->addPolylineTo(ix, level, x, y, polyLineData);
 }
@@ -593,12 +589,11 @@ void libvisio::VSDXMLParserBase::readInfiniteLine(xmlTextReaderPtr reader)
 
   if (xmlTextReaderIsEmptyElement(reader))
   {
-    xmlChar *delString = xmlTextReaderGetAttribute(reader, BAD_CAST("Del"));
+    const shared_ptr<xmlChar> delString(xmlTextReaderGetAttribute(reader, BAD_CAST("Del")), xmlFree);
     if (delString)
     {
       if (xmlStringToBool(delString))
         m_currentGeometryList->addEmpty(ix, level);
-      xmlFree(delString);
     }
     return;
   }
@@ -636,7 +631,7 @@ void libvisio::VSDXMLParserBase::readInfiniteLine(xmlTextReaderPtr reader)
       break;
     }
   }
-  while (((XML_INFINITELINE != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_INFINITELINE != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
   if (ret == 1)
     m_currentGeometryList->addInfiniteLine(ix, level, x, y, a, b);
 }
@@ -652,12 +647,11 @@ void libvisio::VSDXMLParserBase::readRelEllipticalArcTo(xmlTextReaderPtr reader)
 
   if (xmlTextReaderIsEmptyElement(reader))
   {
-    xmlChar *delString = xmlTextReaderGetAttribute(reader, BAD_CAST("Del"));
+    const shared_ptr<xmlChar> delString(xmlTextReaderGetAttribute(reader, BAD_CAST("Del")), xmlFree);
     if (delString)
     {
       if (xmlStringToBool(delString))
         m_currentGeometryList->addEmpty(ix, level);
-      xmlFree(delString);
     }
     return;
   }
@@ -703,7 +697,7 @@ void libvisio::VSDXMLParserBase::readRelEllipticalArcTo(xmlTextReaderPtr reader)
       break;
     }
   }
-  while (((XML_RELELLIPTICALARCTO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_RELELLIPTICALARCTO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
   if (ret == 1)
     m_currentGeometryList->addRelEllipticalArcTo(ix, level, x, y, a, b, c, d);
 }
@@ -719,12 +713,11 @@ void libvisio::VSDXMLParserBase::readRelCubBezTo(xmlTextReaderPtr reader)
 
   if (xmlTextReaderIsEmptyElement(reader))
   {
-    xmlChar *delString = xmlTextReaderGetAttribute(reader, BAD_CAST("Del"));
+    const shared_ptr<xmlChar> delString(xmlTextReaderGetAttribute(reader, BAD_CAST("Del")), xmlFree);
     if (delString)
     {
       if (xmlStringToBool(delString))
         m_currentGeometryList->addEmpty(ix, level);
-      xmlFree(delString);
     }
     return;
   }
@@ -770,7 +763,7 @@ void libvisio::VSDXMLParserBase::readRelCubBezTo(xmlTextReaderPtr reader)
       break;
     }
   }
-  while (((XML_RELCUBBEZTO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_RELCUBBEZTO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
   if (ret == 1)
     m_currentGeometryList->addRelCubBezTo(ix, level, x, y, a, b, c, d);
 }
@@ -786,12 +779,11 @@ void libvisio::VSDXMLParserBase::readRelLineTo(xmlTextReaderPtr reader)
 
   if (xmlTextReaderIsEmptyElement(reader))
   {
-    xmlChar *delString = xmlTextReaderGetAttribute(reader, BAD_CAST("Del"));
+    const shared_ptr<xmlChar> delString(xmlTextReaderGetAttribute(reader, BAD_CAST("Del")), xmlFree);
     if (delString)
     {
       if (xmlStringToBool(delString))
         m_currentGeometryList->addEmpty(ix, level);
-      xmlFree(delString);
     }
     return;
   }
@@ -821,7 +813,7 @@ void libvisio::VSDXMLParserBase::readRelLineTo(xmlTextReaderPtr reader)
       break;
     }
   }
-  while (((XML_RELLINETO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_RELLINETO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
   if (ret == 1)
     m_currentGeometryList->addRelLineTo(ix, level, x, y);
 }
@@ -837,12 +829,11 @@ void libvisio::VSDXMLParserBase::readRelMoveTo(xmlTextReaderPtr reader)
 
   if (xmlTextReaderIsEmptyElement(reader))
   {
-    xmlChar *delString = xmlTextReaderGetAttribute(reader, BAD_CAST("Del"));
+    const shared_ptr<xmlChar> delString(xmlTextReaderGetAttribute(reader, BAD_CAST("Del")), xmlFree);
     if (delString)
     {
       if (xmlStringToBool(delString))
         m_currentGeometryList->addEmpty(ix, level);
-      xmlFree(delString);
     }
     return;
   }
@@ -872,7 +863,7 @@ void libvisio::VSDXMLParserBase::readRelMoveTo(xmlTextReaderPtr reader)
       break;
     }
   }
-  while (((XML_RELMOVETO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_RELMOVETO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
   if (ret == 1)
     m_currentGeometryList->addRelMoveTo(ix, level, x, y);
 }
@@ -888,12 +879,11 @@ void libvisio::VSDXMLParserBase::readRelQuadBezTo(xmlTextReaderPtr reader)
 
   if (xmlTextReaderIsEmptyElement(reader))
   {
-    xmlChar *delString = xmlTextReaderGetAttribute(reader, BAD_CAST("Del"));
+    const shared_ptr<xmlChar> delString(xmlTextReaderGetAttribute(reader, BAD_CAST("Del")), xmlFree);
     if (delString)
     {
       if (xmlStringToBool(delString))
         m_currentGeometryList->addEmpty(ix, level);
-      xmlFree(delString);
     }
     return;
   }
@@ -931,7 +921,7 @@ void libvisio::VSDXMLParserBase::readRelQuadBezTo(xmlTextReaderPtr reader)
       break;
     }
   }
-  while (((XML_RELQUADBEZTO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_RELQUADBEZTO != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
   if (ret == 1)
     m_currentGeometryList->addRelQuadBezTo(ix, level, x, y, a, b);
 }
@@ -941,12 +931,12 @@ void libvisio::VSDXMLParserBase::readShape(xmlTextReaderPtr reader)
   m_isShapeStarted = true;
   m_currentShapeLevel = getElementDepth(reader);
 
-  xmlChar *idString = xmlTextReaderGetAttribute(reader, BAD_CAST("ID"));
-  xmlChar *masterPageString = xmlTextReaderGetAttribute(reader, BAD_CAST("Master"));
-  xmlChar *masterShapeString = xmlTextReaderGetAttribute(reader, BAD_CAST("MasterShape"));
-  xmlChar *lineStyleString = xmlTextReaderGetAttribute(reader, BAD_CAST("LineStyle"));
-  xmlChar *fillStyleString = xmlTextReaderGetAttribute(reader, BAD_CAST("FillStyle"));
-  xmlChar *textStyleString = xmlTextReaderGetAttribute(reader, BAD_CAST("TextStyle"));
+  const shared_ptr<xmlChar> idString(xmlTextReaderGetAttribute(reader, BAD_CAST("ID")), xmlFree);
+  const shared_ptr<xmlChar> masterPageString(xmlTextReaderGetAttribute(reader, BAD_CAST("Master")), xmlFree);
+  const shared_ptr<xmlChar> masterShapeString(xmlTextReaderGetAttribute(reader, BAD_CAST("MasterShape")), xmlFree);
+  const shared_ptr<xmlChar> lineStyleString(xmlTextReaderGetAttribute(reader, BAD_CAST("LineStyle")), xmlFree);
+  const shared_ptr<xmlChar> fillStyleString(xmlTextReaderGetAttribute(reader, BAD_CAST("FillStyle")), xmlFree);
+  const shared_ptr<xmlChar> textStyleString(xmlTextReaderGetAttribute(reader, BAD_CAST("TextStyle")), xmlFree);
 
   unsigned id = idString ? (unsigned)xmlStringToLong(idString) : MINUS_ONE;
   unsigned masterPage = masterPageString ? (unsigned)xmlStringToLong(masterPageString) : MINUS_ONE;
@@ -954,19 +944,6 @@ void libvisio::VSDXMLParserBase::readShape(xmlTextReaderPtr reader)
   unsigned lineStyle = lineStyleString ? (unsigned)xmlStringToLong(lineStyleString) : MINUS_ONE;
   unsigned fillStyle =  fillStyleString ? (unsigned)xmlStringToLong(fillStyleString) : MINUS_ONE;
   unsigned textStyle =  textStyleString ? (unsigned)xmlStringToLong(textStyleString) : MINUS_ONE;
-
-  if (idString)
-    xmlFree(idString);
-  if (masterPageString)
-    xmlFree(masterPageString);
-  if (masterShapeString)
-    xmlFree(masterShapeString);
-  if (lineStyleString)
-    xmlFree(lineStyleString);
-  if (fillStyleString)
-    xmlFree(fillStyleString);
-  if (textStyleString)
-    xmlFree(textStyleString);
 
   if (masterPage != MINUS_ONE || masterShape != MINUS_ONE)
   {
@@ -977,7 +954,7 @@ void libvisio::VSDXMLParserBase::readShape(xmlTextReaderPtr reader)
   m_shape.clear();
   m_shape.m_textFormat = VSD_TEXT_UTF8;
 
-  if (m_isStencilStarted)
+  if (m_isStencilStarted && m_currentStencil)
     m_currentStencil->setFirstShape(id);
 
   const VSDStencil *tmpStencil = m_stencils.getStencil(masterPage);
@@ -996,7 +973,9 @@ void libvisio::VSDXMLParserBase::readShape(xmlTextReaderPtr reader)
       m_shape.m_geometries = tmpShape->m_geometries;
       m_shape.m_charList = tmpShape->m_charList;
       m_shape.m_paraList = tmpShape->m_paraList;
+      m_shape.m_tabSets = tmpShape->m_tabSets;
       m_shape.m_text = tmpShape->m_text;
+      m_shape.m_textFormat = tmpShape->m_textFormat;
       m_shape.m_misc = tmpShape->m_misc;
     }
   }
@@ -1066,26 +1045,26 @@ void libvisio::VSDXMLParserBase::readColours(xmlTextReaderPtr reader)
     if (XML_COLORENTRY == tokenId)
     {
       unsigned idx = getIX(reader);
-      xmlChar *rgb = xmlTextReaderGetAttribute(reader, BAD_CAST("RGB"));
+      const shared_ptr<xmlChar> rgb(xmlTextReaderGetAttribute(reader, BAD_CAST("RGB")), xmlFree);
       if (MINUS_ONE != idx && rgb)
       {
         Colour rgbColour = xmlStringToColour(rgb);
         m_colours[idx] = rgbColour;
       }
-      if (rgb)
-        xmlFree(rgb);
     }
   }
-  while ((XML_COLORS != tokenId || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while ((XML_COLORS != tokenId || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
 }
 
 void libvisio::VSDXMLParserBase::readPage(xmlTextReaderPtr reader)
 {
   m_shapeList.clear();
-  xmlChar *id = xmlTextReaderGetAttribute(reader, BAD_CAST("ID"));
-  xmlChar *bgndPage = xmlTextReaderGetAttribute(reader, BAD_CAST("BackPage"));
-  xmlChar *background = xmlTextReaderGetAttribute(reader, BAD_CAST("Background"));
-  xmlChar *pageName = xmlTextReaderGetAttribute(reader, BAD_CAST("NameU"));
+  const shared_ptr<xmlChar> id(xmlTextReaderGetAttribute(reader, BAD_CAST("ID")), xmlFree);
+  const shared_ptr<xmlChar> bgndPage(xmlTextReaderGetAttribute(reader, BAD_CAST("BackPage")), xmlFree);
+  const shared_ptr<xmlChar> background(xmlTextReaderGetAttribute(reader, BAD_CAST("Background")), xmlFree);
+  shared_ptr<xmlChar> pageName(xmlTextReaderGetAttribute(reader, BAD_CAST("Name")), xmlFree);
+  if (!pageName.get())
+    pageName.reset(xmlTextReaderGetAttribute(reader, BAD_CAST("NameU")), xmlFree);
   if (id)
   {
     unsigned nId = (unsigned)xmlStringToLong(id);
@@ -1093,16 +1072,8 @@ void libvisio::VSDXMLParserBase::readPage(xmlTextReaderPtr reader)
     bool isBackgroundPage = background ? xmlStringToBool(background) : false;
     m_isPageStarted = true;
     m_collector->startPage(nId);
-    m_collector->collectPage(nId, (unsigned)getElementDepth(reader), backgroundPageID, isBackgroundPage, pageName ? VSDName(librevenge::RVNGBinaryData(pageName, xmlStrlen(pageName)), VSD_TEXT_UTF8) : VSDName());
+    m_collector->collectPage(nId, (unsigned)getElementDepth(reader), backgroundPageID, isBackgroundPage, pageName ? VSDName(librevenge::RVNGBinaryData(pageName.get(), xmlStrlen(pageName.get())), VSD_TEXT_UTF8) : VSDName());
   }
-  if (id)
-    xmlFree(id);
-  if (bgndPage)
-    xmlFree(bgndPage);
-  if (background)
-    xmlFree(background);
-  if (pageName)
-    xmlFree(pageName);
 }
 
 void libvisio::VSDXMLParserBase::readText(xmlTextReaderPtr reader)
@@ -1112,6 +1083,7 @@ void libvisio::VSDXMLParserBase::readText(xmlTextReaderPtr reader)
 
   unsigned cp = 0;
   unsigned pp = 0;
+  unsigned tp = 0;
   m_shape.m_text.clear();
   m_shape.m_charList.resetCharCount();
   m_shape.m_paraList.resetCharCount();
@@ -1132,10 +1104,16 @@ void libvisio::VSDXMLParserBase::readText(xmlTextReaderPtr reader)
     switch (tokenId)
     {
     case XML_CP:
-      cp = getIX(reader);
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+        cp = getIX(reader);
       break;
     case XML_PP:
-      pp = getIX(reader);
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+        pp = getIX(reader);
+      break;
+    case XML_TP:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+        tp = getIX(reader);
       break;
     default:
       if (XML_READER_TYPE_TEXT == tokenType || XML_READER_TYPE_SIGNIFICANT_WHITESPACE == tokenType)
@@ -1180,13 +1158,15 @@ void libvisio::VSDXMLParserBase::readText(xmlTextReaderPtr reader)
           m_shape.m_paraList.setCharCount(pp, charCount);
         }
 
+        m_shape.m_tabSets[tp].m_numChars += (unsigned)tmpText.size();
+
         m_shape.m_text.append(tmpText);
         m_shape.m_textFormat = VSD_TEXT_UTF8;
       }
       break;
     }
   }
-  while ((XML_TEXT != tokenId || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while ((XML_TEXT != tokenId || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
 }
 
 void libvisio::VSDXMLParserBase::readCharIX(xmlTextReaderPtr reader)
@@ -1217,6 +1197,7 @@ void libvisio::VSDXMLParserBase::readCharIX(xmlTextReaderPtr reader)
   boost::optional<bool> superscript;
   boost::optional<bool> subscript;
   boost::optional<double> fontSize;
+  boost::optional<double> scaleWidth;
 
   do
   {
@@ -1232,8 +1213,8 @@ void libvisio::VSDXMLParserBase::readCharIX(xmlTextReaderPtr reader)
     case XML_FONT:
       if (XML_READER_TYPE_ELEMENT == tokenType)
       {
-        xmlChar *stringValue = readStringData(reader);
-        if (stringValue && !xmlStrEqual(stringValue, BAD_CAST("Themed")))
+        const shared_ptr<xmlChar> stringValue(readStringData(reader), xmlFree);
+        if (stringValue && !xmlStrEqual(stringValue.get(), BAD_CAST("Themed")))
         {
           try
           {
@@ -1242,15 +1223,13 @@ void libvisio::VSDXMLParserBase::readCharIX(xmlTextReaderPtr reader)
             if (iter != m_fonts.end())
               font = iter->second;
             else
-              font = VSDName(librevenge::RVNGBinaryData(stringValue, xmlStrlen(stringValue)), VSD_TEXT_UTF8);
+              font = VSDName(librevenge::RVNGBinaryData(stringValue.get(), xmlStrlen(stringValue.get())), VSD_TEXT_UTF8);
           }
           catch (const XmlParserException &)
           {
-            font = VSDName(librevenge::RVNGBinaryData(stringValue, xmlStrlen(stringValue)), VSD_TEXT_UTF8);
+            font = VSDName(librevenge::RVNGBinaryData(stringValue.get(), xmlStrlen(stringValue.get())), VSD_TEXT_UTF8);
           }
         }
-        if (stringValue)
-          xmlFree(stringValue);
       }
       break;
     case XML_COLOR:
@@ -1325,6 +1304,8 @@ void libvisio::VSDXMLParserBase::readCharIX(xmlTextReaderPtr reader)
       }
       break;
     case XML_FONTSCALE:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+        ret = readDoubleData(scaleWidth, reader);
       break;
     case XML_SIZE:
       if (XML_READER_TYPE_ELEMENT == tokenType)
@@ -1351,23 +1332,74 @@ void libvisio::VSDXMLParserBase::readCharIX(xmlTextReaderPtr reader)
     }
 
   }
-  while (((XML_CHAR != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_CHAR != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
 
   if (m_isInStyles)
     m_collector->collectCharIXStyle(ix, level, charCount, font, fontColour, fontSize, bold, italic,
                                     underline, doubleunderline, strikeout, doublestrikeout, allcaps,
-                                    initcaps, smallcaps, superscript, subscript);
+                                    initcaps, smallcaps, superscript, subscript, scaleWidth);
   else
   {
     if (!ix || m_shape.m_charList.empty()) // character style 0 is the default character style
       m_shape.m_charStyle.override(VSDOptionalCharStyle(charCount, font, fontColour, fontSize, bold,
                                                         italic, underline, doubleunderline, strikeout, doublestrikeout,
-                                                        allcaps, initcaps, smallcaps, superscript, subscript));
+                                                        allcaps, initcaps, smallcaps, superscript, subscript, scaleWidth));
 
     m_shape.m_charList.addCharIX(ix, level, charCount, font, fontColour, fontSize, bold, italic,
                                  underline, doubleunderline, strikeout, doublestrikeout, allcaps,
-                                 initcaps, smallcaps, superscript, subscript);
+                                 initcaps, smallcaps, superscript, subscript, scaleWidth);
   }
+}
+
+void libvisio::VSDXMLParserBase::readLayerIX(xmlTextReaderPtr reader)
+{
+  if (xmlTextReaderIsEmptyElement(reader))
+    return;
+
+  unsigned ix = getIX(reader);
+
+  int ret = 1;
+  int tokenId = XML_TOKEN_INVALID;
+  int tokenType = -1;
+  int level = getElementDepth(reader);
+
+  VSDLayer layer;
+
+  do
+  {
+    ret = xmlTextReaderRead(reader);
+    tokenId = getElementToken(reader);
+    if (XML_TOKEN_INVALID == tokenId)
+    {
+      VSD_DEBUG_MSG(("VSDXMLParserBase::readLayerIX: unknown token %s\n", xmlTextReaderConstName(reader)));
+    }
+    tokenType = xmlTextReaderNodeType(reader);
+
+    switch (tokenId)
+    {
+    case XML_COLOR:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+      {
+        Colour colour;
+        long idx = -2;
+        ret = readExtendedColourData(colour, idx, reader);
+        if (idx != -1)
+          layer.m_colour = colour;
+      }
+      break;
+    case XML_VISIBLE:
+      ret = readBoolData(layer.m_visible, reader);
+      break;
+    case XML_PRINT:
+      ret = readBoolData(layer.m_printable, reader);
+      break;
+    default:
+      break;
+    }
+  }
+  while (((XML_LAYER != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
+
+  m_collector->collectLayer(ix, level, layer);
 }
 
 void libvisio::VSDXMLParserBase::readParaIX(xmlTextReaderPtr reader)
@@ -1390,6 +1422,11 @@ void libvisio::VSDXMLParserBase::readParaIX(xmlTextReaderPtr reader)
   boost::optional<double> spBefore;
   boost::optional<double> spAfter;
   boost::optional<unsigned char> align;
+  boost::optional<unsigned char> bullet;
+  boost::optional<VSDName> bulletStr;
+  boost::optional<VSDName> bulletFont;
+  boost::optional<double> bulletFontSize;
+  boost::optional<double> textPosAfterBullet;
   boost::optional<unsigned> flags;
 
   do
@@ -1436,32 +1473,87 @@ void libvisio::VSDXMLParserBase::readParaIX(xmlTextReaderPtr reader)
       if (XML_READER_TYPE_ELEMENT == tokenType)
         readUnsignedData(flags, reader);
       break;
+    case XML_BULLET:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+        readByteData(bullet, reader);
+      break;
+    case XML_BULLETSTR:
+      if (XML_READER_TYPE_ELEMENT == tokenType && !xmlTextReaderIsEmptyElement(reader))
+      {
+        const shared_ptr<xmlChar> stringValue(readStringData(reader), xmlFree);
+        if (stringValue && !xmlStrEqual(stringValue.get(), BAD_CAST("Themed")))
+        {
+          unsigned length = xmlStrlen(stringValue.get());
+          const xmlChar *strV = stringValue.get();
+          // The character U+E000 is considered as empty string in VDX produced by Visio 2002
+          if (3 != length || 0xee != strV[0] || 0x80 != strV[1] || 0x80 != strV[2])
+            bulletStr = VSDName(librevenge::RVNGBinaryData(stringValue.get(), xmlStrlen(stringValue.get())), VSD_TEXT_UTF8);
+        }
+      }
+      break;
+    case XML_BULLETFONT:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+      {
+        const shared_ptr<xmlChar> stringValue(readStringData(reader), xmlFree);
+        if (stringValue && !xmlStrEqual(stringValue.get(), BAD_CAST("Themed")))
+        {
+          try
+          {
+            unsigned fontIndex = (unsigned)xmlStringToLong(stringValue);
+            if (fontIndex)
+            {
+              std::map<unsigned, VSDName>::const_iterator iter = m_fonts.find(fontIndex);
+              if (iter != m_fonts.end())
+                bulletFont = iter->second;
+              else
+                bulletFont = VSDName(librevenge::RVNGBinaryData(stringValue.get(), xmlStrlen(stringValue.get())), VSD_TEXT_UTF8);
+            }
+          }
+          catch (const XmlParserException &)
+          {
+            bulletFont = VSDName(librevenge::RVNGBinaryData(stringValue.get(), xmlStrlen(stringValue.get())), VSD_TEXT_UTF8);
+          }
+        }
+      }
+      break;
+    case XML_BULLETFONTSIZE:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+        readDoubleData(bulletFontSize, reader);
+      break;
+    case XML_TEXTPOSAFTERBULLET:
+      if (XML_READER_TYPE_ELEMENT == tokenType)
+        readDoubleData(textPosAfterBullet, reader);
+      break;
     default:
       break;
     }
   }
-  while (((XML_PARA != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_PARA != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
 
   if (m_isInStyles)
     m_collector->collectParaIXStyle(ix, level, charCount, indFirst, indLeft, indRight,
-                                    spLine, spBefore, spAfter, align, flags);
+                                    spLine, spBefore, spAfter, align, bullet, bulletStr,
+                                    bulletFont, bulletFontSize, textPosAfterBullet, flags);
   else
   {
     if (!ix || m_shape.m_paraList.empty()) // paragraph style 0 is the default paragraph style
       m_shape.m_paraStyle.override(VSDOptionalParaStyle(charCount, indFirst, indLeft, indRight,
-                                                        spLine, spBefore, spAfter, align, flags));
+                                                        spLine, spBefore, spAfter, align, bullet,
+                                                        bulletStr, bulletFont, bulletFontSize,
+                                                        textPosAfterBullet, flags));
 
     m_shape.m_paraList.addParaIX(ix, level, charCount, indFirst, indLeft, indRight,
-                                 spLine, spBefore, spAfter, align, flags);
+                                 spLine, spBefore, spAfter, align, bullet, bulletStr,
+                                 bulletFont, bulletFontSize, textPosAfterBullet, flags);
   }
 }
 
 void libvisio::VSDXMLParserBase::readStyleSheet(xmlTextReaderPtr reader)
 {
-  xmlChar *id = xmlTextReaderGetAttribute(reader, BAD_CAST("ID"));
-  xmlChar *lineStyle = xmlTextReaderGetAttribute(reader, BAD_CAST("LineStyle"));
-  xmlChar *fillStyle = xmlTextReaderGetAttribute(reader, BAD_CAST("FillStyle"));
-  xmlChar *textStyle = xmlTextReaderGetAttribute(reader, BAD_CAST("TextStyle"));
+  const shared_ptr<xmlChar> id(xmlTextReaderGetAttribute(reader, BAD_CAST("ID")), xmlFree);
+  const shared_ptr<xmlChar> lineStyle(xmlTextReaderGetAttribute(reader, BAD_CAST("LineStyle")), xmlFree);
+  const shared_ptr<xmlChar> fillStyle(xmlTextReaderGetAttribute(reader, BAD_CAST("FillStyle")), xmlFree);
+  const shared_ptr<xmlChar> textStyle(xmlTextReaderGetAttribute(reader, BAD_CAST("TextStyle")), xmlFree);
   if (id)
   {
     unsigned nId = (unsigned)xmlStringToLong(id);
@@ -1470,14 +1562,6 @@ void libvisio::VSDXMLParserBase::readStyleSheet(xmlTextReaderPtr reader)
     unsigned nTextStyle = (unsigned)(textStyle ? xmlStringToLong(textStyle) : -1);
     m_collector->collectStyleSheet(nId, (unsigned)getElementDepth(reader), nLineStyle, nFillStyle, nTextStyle);
   }
-  if (id)
-    xmlFree(id);
-  if (lineStyle)
-    xmlFree(lineStyle);
-  if (fillStyle)
-    xmlFree(fillStyle);
-  if (textStyle)
-    xmlFree(textStyle);
 }
 
 void libvisio::VSDXMLParserBase::readPageSheet(xmlTextReaderPtr reader)
@@ -1497,12 +1581,11 @@ void libvisio::VSDXMLParserBase::readSplineStart(xmlTextReaderPtr reader)
 
   if (xmlTextReaderIsEmptyElement(reader))
   {
-    xmlChar *delString = xmlTextReaderGetAttribute(reader, BAD_CAST("Del"));
+    const shared_ptr<xmlChar> delString(xmlTextReaderGetAttribute(reader, BAD_CAST("Del")), xmlFree);
     if (delString)
     {
       if (xmlStringToBool(delString))
         m_currentGeometryList->addEmpty(ix, level);
-      xmlFree(delString);
     }
     return;
   }
@@ -1548,7 +1631,7 @@ void libvisio::VSDXMLParserBase::readSplineStart(xmlTextReaderPtr reader)
       break;
     }
   }
-  while (((XML_SPLINESTART != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_SPLINESTART != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
   if (ret == 1)
     m_currentGeometryList->addSplineStart(ix, level, x, y, a, b, c, d);
 }
@@ -1564,12 +1647,11 @@ void libvisio::VSDXMLParserBase::readSplineKnot(xmlTextReaderPtr reader)
 
   if (xmlTextReaderIsEmptyElement(reader))
   {
-    xmlChar *delString = xmlTextReaderGetAttribute(reader, BAD_CAST("Del"));
+    const shared_ptr<xmlChar> delString(xmlTextReaderGetAttribute(reader, BAD_CAST("Del")), xmlFree);
     if (delString)
     {
       if (xmlStringToBool(delString))
         m_currentGeometryList->addEmpty(ix, level);
-      xmlFree(delString);
     }
     return;
   }
@@ -1603,25 +1685,22 @@ void libvisio::VSDXMLParserBase::readSplineKnot(xmlTextReaderPtr reader)
       break;
     }
   }
-  while (((XML_SPLINEKNOT != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_SPLINEKNOT != tokenId && XML_ROW != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret && (!m_watcher || !m_watcher->isError()));
   if (ret == 1)
     m_currentGeometryList->addSplineKnot(ix, level, x, y, a);
 }
 
 void libvisio::VSDXMLParserBase::readStencil(xmlTextReaderPtr reader)
 {
-  xmlChar *id = xmlTextReaderGetAttribute(reader, BAD_CAST("ID"));
+  const shared_ptr<xmlChar> id(xmlTextReaderGetAttribute(reader, BAD_CAST("ID")), xmlFree);
   if (id)
   {
     unsigned nId = (unsigned)xmlStringToLong(id);
     m_currentStencilID = nId;
-    xmlFree(id);
   }
   else
     m_currentStencilID = MINUS_ONE;
-  if (m_currentStencil)
-    delete m_currentStencil;
-  m_currentStencil = new VSDStencil();
+  m_currentStencil.reset(new VSDStencil());
 }
 
 void libvisio::VSDXMLParserBase::readForeignData(xmlTextReaderPtr reader)
@@ -1630,33 +1709,31 @@ void libvisio::VSDXMLParserBase::readForeignData(xmlTextReaderPtr reader)
   if (!m_shape.m_foreign)
     m_shape.m_foreign = new ForeignData();
 
-  xmlChar *foreignTypeString = xmlTextReaderGetAttribute(reader, BAD_CAST("ForeignType"));
+  const shared_ptr<xmlChar> foreignTypeString(xmlTextReaderGetAttribute(reader, BAD_CAST("ForeignType")), xmlFree);
   if (foreignTypeString)
   {
-    if (xmlStrEqual(foreignTypeString, BAD_CAST("Bitmap")))
+    if (xmlStrEqual(foreignTypeString.get(), BAD_CAST("Bitmap")))
       m_shape.m_foreign->type = 1;
-    else if (xmlStrEqual(foreignTypeString, BAD_CAST("Object")))
+    else if (xmlStrEqual(foreignTypeString.get(), BAD_CAST("Object")))
       m_shape.m_foreign->type = 2;
-    else if (xmlStrEqual(foreignTypeString, BAD_CAST("EnhMetaFile")))
+    else if (xmlStrEqual(foreignTypeString.get(), BAD_CAST("EnhMetaFile")))
       m_shape.m_foreign->type = 4;
-    else if (xmlStrEqual(foreignTypeString, BAD_CAST("MetaFile")))
+    else if (xmlStrEqual(foreignTypeString.get(), BAD_CAST("MetaFile")))
       m_shape.m_foreign->type = 0;
-    xmlFree(foreignTypeString);
   }
-  xmlChar *foreignFormatString = xmlTextReaderGetAttribute(reader, BAD_CAST("CompressionType"));
+  const shared_ptr<xmlChar> foreignFormatString(xmlTextReaderGetAttribute(reader, BAD_CAST("CompressionType")), xmlFree);
   if (foreignFormatString)
   {
-    if (xmlStrEqual(foreignFormatString, BAD_CAST("JPEG")))
+    if (xmlStrEqual(foreignFormatString.get(), BAD_CAST("JPEG")))
       m_shape.m_foreign->format = 1;
-    else if (xmlStrEqual(foreignFormatString, BAD_CAST("GIF")))
+    else if (xmlStrEqual(foreignFormatString.get(), BAD_CAST("GIF")))
       m_shape.m_foreign->format = 2;
-    else if (xmlStrEqual(foreignFormatString, BAD_CAST("TIFF")))
+    else if (xmlStrEqual(foreignFormatString.get(), BAD_CAST("TIFF")))
       m_shape.m_foreign->format = 3;
-    else if (xmlStrEqual(foreignFormatString, BAD_CAST("PNG")))
+    else if (xmlStrEqual(foreignFormatString.get(), BAD_CAST("PNG")))
       m_shape.m_foreign->format = 4;
     else
       m_shape.m_foreign->format = 0;
-    xmlFree(foreignFormatString);
   }
   else
     m_shape.m_foreign->format = 255;
@@ -1675,17 +1752,21 @@ void libvisio::VSDXMLParserBase::_flushShape()
 
   m_collector->collectXFormData(m_currentShapeLevel+2, m_shape.m_xform);
 
+  m_collector->collectLayerMem(m_currentShapeLevel+2, m_shape.m_layerMem);
+
   m_collector->collectMisc(m_currentShapeLevel+2, m_shape.m_misc);
 
   if (m_shape.m_txtxform)
     m_collector->collectTxtXForm(m_currentShapeLevel+2, *(m_shape.m_txtxform));
 
   m_collector->collectLine(m_currentShapeLevel+2, m_shape.m_lineStyle.width, m_shape.m_lineStyle.colour, m_shape.m_lineStyle.pattern,
-                           m_shape.m_lineStyle.startMarker, m_shape.m_lineStyle.endMarker, m_shape.m_lineStyle.cap);
+                           m_shape.m_lineStyle.startMarker, m_shape.m_lineStyle.endMarker, m_shape.m_lineStyle.cap, m_shape.m_lineStyle.rounding,
+                           m_shape.m_lineStyle.qsLineColour, m_shape.m_lineStyle.qsLineMatrix);
 
   m_collector->collectFillAndShadow(m_currentShapeLevel+2, m_shape.m_fillStyle.fgColour, m_shape.m_fillStyle.bgColour, m_shape.m_fillStyle.pattern,
                                     m_shape.m_fillStyle.fgTransparency, m_shape.m_fillStyle.bgTransparency, m_shape.m_fillStyle.shadowPattern,
-                                    m_shape.m_fillStyle.shadowFgColour, m_shape.m_fillStyle.shadowOffsetX, m_shape.m_fillStyle.shadowOffsetY);
+                                    m_shape.m_fillStyle.shadowFgColour, m_shape.m_fillStyle.shadowOffsetX, m_shape.m_fillStyle.shadowOffsetY,
+                                    m_shape.m_fillStyle.qsFillColour, m_shape.m_fillStyle.qsShadowColour, m_shape.m_fillStyle.qsFillMatrix);
 
   m_collector->collectTextBlock(m_currentShapeLevel+2, m_shape.m_textBlockStyle.leftMargin, m_shape.m_textBlockStyle.rightMargin,
                                 m_shape.m_textBlockStyle.topMargin, m_shape.m_textBlockStyle.bottomMargin, m_shape.m_textBlockStyle.verticalAlign,
@@ -1709,16 +1790,16 @@ void libvisio::VSDXMLParserBase::_flushShape()
 
   if (!m_shape.m_geometries.empty())
   {
-    for (std::map<unsigned, VSDGeometryList>::iterator iter = m_shape.m_geometries.begin(); iter != m_shape.m_geometries.end(); ++iter)
-      iter->second.resetLevel(m_currentShapeLevel+2);
+    for (auto &geometry : m_shape.m_geometries)
+      geometry.second.resetLevel(m_currentShapeLevel+2);
     std::vector<unsigned> tmpVector;
     for (std::map<unsigned, VSDGeometryList>::const_iterator iterGeom = m_shape.m_geometries.begin(); iterGeom != m_shape.m_geometries.end(); ++iterGeom)
       tmpVector.push_back(iterGeom->first);
     std::sort(tmpVector.begin(), tmpVector.end());
 
-    for (unsigned i = 0; i < tmpVector.size(); i++)
+    for (unsigned int i : tmpVector)
     {
-      std::map<unsigned, VSDGeometryList>::const_iterator iter = m_shape.m_geometries.find(tmpVector[i]);
+      std::map<unsigned, VSDGeometryList>::const_iterator iter = m_shape.m_geometries.find(i);
       if (iter != m_shape.m_geometries.end())
       {
         iter->second.handle(m_collector);
@@ -1730,6 +1811,8 @@ void libvisio::VSDXMLParserBase::_flushShape()
   if (m_shape.m_foreign && m_shape.m_foreign->data.size())
     m_collector->collectForeignData(m_currentShapeLevel+1, m_shape.m_foreign->data);
 
+  m_collector->collectTabsDataList(m_currentShapeLevel+1, m_shape.m_tabSets);
+
   if (!m_shape.m_fields.empty())
     m_shape.m_fields.handle(m_collector);
 
@@ -1740,13 +1823,15 @@ void libvisio::VSDXMLParserBase::_flushShape()
                                        m_shape.m_charStyle.size, m_shape.m_charStyle.bold, m_shape.m_charStyle.italic, m_shape.m_charStyle.underline,
                                        m_shape.m_charStyle.doubleunderline, m_shape.m_charStyle.strikeout, m_shape.m_charStyle.doublestrikeout,
                                        m_shape.m_charStyle.allcaps, m_shape.m_charStyle.initcaps, m_shape.m_charStyle.smallcaps,
-                                       m_shape.m_charStyle.superscript, m_shape.m_charStyle.subscript);
+                                       m_shape.m_charStyle.superscript, m_shape.m_charStyle.subscript, m_shape.m_charStyle.scaleWidth);
 
   m_shape.m_charList.handle(m_collector);
 
   m_collector->collectDefaultParaStyle(m_shape.m_paraStyle.charCount, m_shape.m_paraStyle.indFirst, m_shape.m_paraStyle.indLeft,
                                        m_shape.m_paraStyle.indRight, m_shape.m_paraStyle.spLine, m_shape.m_paraStyle.spBefore,
-                                       m_shape.m_paraStyle.spAfter, m_shape.m_paraStyle.align, m_shape.m_paraStyle.flags);
+                                       m_shape.m_paraStyle.spAfter, m_shape.m_paraStyle.align, m_shape.m_paraStyle.bullet,
+                                       m_shape.m_paraStyle.bulletStr, m_shape.m_paraStyle.bulletFont, m_shape.m_paraStyle.bulletFontSize,
+                                       m_shape.m_paraStyle.textPosAfterBullet, m_shape.m_paraStyle.flags);
 
   m_shape.m_paraList.handle(m_collector);
 
@@ -1841,11 +1926,8 @@ void libvisio::VSDXMLParserBase::handleMasterEnd(xmlTextReaderPtr /* reader */)
   else
   {
     if (m_currentStencil)
-    {
       m_stencils.addStencil(m_currentStencilID, *m_currentStencil);
-      delete m_currentStencil;
-    }
-    m_currentStencil = 0;
+    m_currentStencil.reset();
     m_currentStencilID = MINUS_ONE;
   }
 }
@@ -1880,39 +1962,49 @@ void libvisio::VSDXMLParserBase::skipPages(xmlTextReaderPtr reader)
 
 int libvisio::VSDXMLParserBase::readNURBSData(boost::optional<NURBSData> &data, xmlTextReaderPtr reader)
 {
-  using namespace ::boost::spirit::classic;
-
   NURBSData tmpData;
 
   bool bRes = false;
-  xmlChar *formula = readStringData(reader);
+  const shared_ptr<xmlChar> formula(readStringData(reader), xmlFree);
 
   if (formula)
   {
     std::pair<double, double> point;
 
-    bRes = parse((const char *)formula,
-                 //  Begin grammar
-                 (
-                   str_p("NURBS")
-                   >> '('
-                   >> real_p[assign_a(tmpData.lastKnot)] >> (',' | eps_p)
-                   >> int_p[assign_a(tmpData.degree)] >> (',' | eps_p)
-                   >> int_p[assign_a(tmpData.xType)] >> (',' | eps_p)
-                   >> int_p[assign_a(tmpData.yType)] >> (',' | eps_p) >>
-                   // array of points, weights and knots
-                   (list_p(
-                      (
-                        (real_p[assign_a(point.first)] >> (',' | eps_p) >>
-                         real_p[assign_a(point.second)])[push_back_a(tmpData.points,point)]
-                        >> (',' | eps_p) >>
-                        real_p[push_back_a(tmpData.knots)] >> (',' | eps_p) >>
-                        real_p[push_back_a(tmpData.weights)]), ',' | eps_p))
-                 ) >> ')' >> end_p,
-                 //  End grammar
-                 space_p).full;
+    using namespace boost::spirit::qi;
+    namespace phx = boost::phoenix;
+    using phx::push_back;
+    using phx::ref;
 
-    xmlFree(formula);
+    auto first = reinterpret_cast<const char *>(formula.get());
+    const auto last = first + strlen(first);
+    bRes = phrase_parse(first, last,
+                        //  Begin grammar
+                        (
+                          lit("NURBS")
+                          >> '('
+                          >> double_[ref(tmpData.lastKnot) = _1] >> -lit(',')
+                          >> int_[ref(tmpData.degree) = _1] >> -lit(',')
+                          >> int_[ref(tmpData.xType) = _1] >> -lit(',')
+                          >> int_[ref(tmpData.yType) = _1] >> -lit(',')
+                          >> // array of points, weights and knots
+                          (
+                            (
+                              (double_[ref(point.first) = _1] >> -lit(',') >>
+                               double_[ref(point.second) = _1]
+                              )[push_back(phx::ref(tmpData.points), phx::cref(point))]
+                              >> -lit(',') >>
+                              double_[push_back(phx::ref(tmpData.knots),
+                                                _1)] >> -lit(',') >>
+                              double_[push_back(phx::ref(tmpData.weights), _1)]
+                            )
+                            % -lit(',')
+                          )
+                          >> ')'
+                        ),
+                        //  End grammar
+                        space)
+           && first == last;
   }
 
   if (!bRes)
@@ -1923,34 +2015,39 @@ int libvisio::VSDXMLParserBase::readNURBSData(boost::optional<NURBSData> &data, 
 
 int libvisio::VSDXMLParserBase::readPolylineData(boost::optional<PolylineData> &data, xmlTextReaderPtr reader)
 {
-  using namespace ::boost::spirit::classic;
-
   PolylineData tmpData;
 
   bool bRes = false;
-  xmlChar *formula = readStringData(reader);
+  const shared_ptr<xmlChar> formula(readStringData(reader), xmlFree);
 
   if (formula)
   {
     std::pair<double, double> point;
 
-    bRes = parse((const char *)formula,
-                 //  Begin grammar
-                 (
-                   str_p("POLYLINE")
-                   >> '('
-                   >> int_p[assign_a(tmpData.xType)] >> (',' | eps_p)
-                   >> int_p[assign_a(tmpData.yType)] >> (',' | eps_p) >>
-                   // array of points
-                   (list_p(
-                      (
-                        (real_p[assign_a(point.first)] >> (',' | eps_p) >>
-                         real_p[assign_a(point.second)])[push_back_a(tmpData.points,point)]), ',' | eps_p))
-                 ) >> ')' >> end_p,
-                 //  End grammar
-                 space_p).full;
+    using namespace boost::spirit::qi;
+    namespace phx = boost::phoenix;
+    using phx::push_back;
+    using phx::ref;
 
-    xmlFree(formula);
+    auto first = reinterpret_cast<const char *>(formula.get());
+    const auto last = first + strlen(first);
+    bRes = phrase_parse(first, last,
+                        (
+                          lit("POLYLINE")
+                          >> '('
+                          >> int_[ref(tmpData.xType) = _1] >> -lit(',')
+                          >> int_[ref(tmpData.yType) = _1] >> -lit(',')
+                          >> // array of points
+                          (
+                            (
+                              double_[ref(point.first) = _1] >> -lit(',')
+                              >> double_[ref(point.second) = _1]
+                            )[push_back(phx::ref(tmpData.points), phx::cref(point))] % -lit(',')
+                          )
+                          >> ')'
+                        ),
+                        space)
+           && first == last;
   }
 
   if (!bRes)
@@ -1962,13 +2059,28 @@ int libvisio::VSDXMLParserBase::readPolylineData(boost::optional<PolylineData> &
 
 int libvisio::VSDXMLParserBase::readDoubleData(double &value, xmlTextReaderPtr reader)
 {
-  xmlChar *stringValue = readStringData(reader);
+  const shared_ptr<xmlChar> stringValue(readStringData(reader), xmlFree);
   if (stringValue)
   {
-    VSD_DEBUG_MSG(("VSDXMLParserBase::readDoubleData stringValue %s\n", (const char *)stringValue));
-    if (!xmlStrEqual(stringValue, BAD_CAST("Themed")))
+    VSD_DEBUG_MSG(("VSDXMLParserBase::readDoubleData stringValue %s\n", (const char *)stringValue.get()));
+    if (!xmlStrEqual(stringValue.get(), BAD_CAST("Themed")))
       value = xmlStringToDouble(stringValue);
-    xmlFree(stringValue);
+    return 1;
+  }
+  return -1;
+}
+
+int libvisio::VSDXMLParserBase::readStringData(libvisio::VSDName &text, xmlTextReaderPtr reader)
+{
+  const shared_ptr<xmlChar> stringValue(readStringData(reader), xmlFree);
+  if (stringValue)
+  {
+    VSD_DEBUG_MSG(("VSDXMLParserBase::readStringData stringValue %s\n", (const char *)stringValue.get()));
+    if (!xmlStrEqual(stringValue.get(), BAD_CAST("Themed")))
+    {
+      text.m_data = librevenge::RVNGBinaryData(stringValue.get(), xmlStrlen(stringValue.get()));
+      text.m_format = VSD_TEXT_UTF8;
+    }
     return 1;
   }
   return -1;
@@ -1976,13 +2088,12 @@ int libvisio::VSDXMLParserBase::readDoubleData(double &value, xmlTextReaderPtr r
 
 int libvisio::VSDXMLParserBase::readDoubleData(boost::optional<double> &value, xmlTextReaderPtr reader)
 {
-  xmlChar *stringValue = readStringData(reader);
+  const shared_ptr<xmlChar> stringValue(readStringData(reader), xmlFree);
   if (stringValue)
   {
-    VSD_DEBUG_MSG(("VSDXMLParserBase::readDoubleData stringValue %s\n", (const char *)stringValue));
-    if (!xmlStrEqual(stringValue, BAD_CAST("Themed")))
+    VSD_DEBUG_MSG(("VSDXMLParserBase::readDoubleData stringValue %s\n", (const char *)stringValue.get()));
+    if (!xmlStrEqual(stringValue.get(), BAD_CAST("Themed")))
       value = xmlStringToDouble(stringValue);
-    xmlFree(stringValue);
     return 1;
   }
   return -1;
@@ -1990,13 +2101,12 @@ int libvisio::VSDXMLParserBase::readDoubleData(boost::optional<double> &value, x
 
 int libvisio::VSDXMLParserBase::readLongData(long &value, xmlTextReaderPtr reader)
 {
-  xmlChar *stringValue = readStringData(reader);
+  const shared_ptr<xmlChar> stringValue(readStringData(reader), xmlFree);
   if (stringValue)
   {
-    VSD_DEBUG_MSG(("VSDXMLParserBase::readLongData stringValue %s\n", (const char *)stringValue));
-    if (!xmlStrEqual(stringValue, BAD_CAST("Themed")))
+    VSD_DEBUG_MSG(("VSDXMLParserBase::readLongData stringValue %s\n", (const char *)stringValue.get()));
+    if (!xmlStrEqual(stringValue.get(), BAD_CAST("Themed")))
       value = xmlStringToLong(stringValue);
-    xmlFree(stringValue);
     return 1;
   }
   return -1;
@@ -2004,13 +2114,12 @@ int libvisio::VSDXMLParserBase::readLongData(long &value, xmlTextReaderPtr reade
 
 int libvisio::VSDXMLParserBase::readLongData(boost::optional<long> &value, xmlTextReaderPtr reader)
 {
-  xmlChar *stringValue = readStringData(reader);
+  const shared_ptr<xmlChar> stringValue(readStringData(reader), xmlFree);
   if (stringValue)
   {
-    VSD_DEBUG_MSG(("VSDXMLParserBase::readLongData stringValue %s\n", (const char *)stringValue));
-    if (!xmlStrEqual(stringValue, BAD_CAST("Themed")))
+    VSD_DEBUG_MSG(("VSDXMLParserBase::readLongData stringValue %s\n", (const char *)stringValue.get()));
+    if (!xmlStrEqual(stringValue.get(), BAD_CAST("Themed")))
       value = xmlStringToLong(stringValue);
-    xmlFree(stringValue);
     return 1;
   }
   return -1;
@@ -2018,13 +2127,12 @@ int libvisio::VSDXMLParserBase::readLongData(boost::optional<long> &value, xmlTe
 
 int libvisio::VSDXMLParserBase::readBoolData(bool &value, xmlTextReaderPtr reader)
 {
-  xmlChar *stringValue = readStringData(reader);
+  const shared_ptr<xmlChar> stringValue(readStringData(reader), xmlFree);
   if (stringValue)
   {
-    VSD_DEBUG_MSG(("VSDXMLParserBase::readBoolData stringValue %s\n", (const char *)stringValue));
-    if (!xmlStrEqual(stringValue, BAD_CAST("Themed")))
+    VSD_DEBUG_MSG(("VSDXMLParserBase::readBoolData stringValue %s\n", (const char *)stringValue.get()));
+    if (!xmlStrEqual(stringValue.get(), BAD_CAST("Themed")))
       value = xmlStringToBool(stringValue);
-    xmlFree(stringValue);
     return 1;
   }
   return -1;
@@ -2032,13 +2140,12 @@ int libvisio::VSDXMLParserBase::readBoolData(bool &value, xmlTextReaderPtr reade
 
 int libvisio::VSDXMLParserBase::readBoolData(boost::optional<bool> &value, xmlTextReaderPtr reader)
 {
-  xmlChar *stringValue = readStringData(reader);
+  const shared_ptr<xmlChar> stringValue(readStringData(reader), xmlFree);
   if (stringValue)
   {
-    VSD_DEBUG_MSG(("VSDXMLParserBase::readBoolData stringValue %s\n", (const char *)stringValue));
-    if (!xmlStrEqual(stringValue, BAD_CAST("Themed")))
+    VSD_DEBUG_MSG(("VSDXMLParserBase::readBoolData stringValue %s\n", (const char *)stringValue.get()));
+    if (!xmlStrEqual(stringValue.get(), BAD_CAST("Themed")))
       value = xmlStringToBool(stringValue);
-    xmlFree(stringValue);
     return 1;
   }
   return -1;
@@ -2072,11 +2179,11 @@ int libvisio::VSDXMLParserBase::readByteData(boost::optional<unsigned char> &val
 
 int libvisio::VSDXMLParserBase::readExtendedColourData(Colour &value, long &idx, xmlTextReaderPtr reader)
 {
-  xmlChar *stringValue = readStringData(reader);
+  const shared_ptr<xmlChar> stringValue(readStringData(reader), xmlFree);
   if (stringValue)
   {
-    VSD_DEBUG_MSG(("VSDXMLParserBase::readColourData stringValue %s\n", (const char *)stringValue));
-    if (!xmlStrEqual(stringValue, BAD_CAST("Themed")))
+    VSD_DEBUG_MSG(("VSDXMLParserBase::readColourData stringValue %s\n", (const char *)stringValue.get()));
+    if (!xmlStrEqual(stringValue.get(), BAD_CAST("Themed")))
     {
       try
       {
@@ -2095,7 +2202,8 @@ int libvisio::VSDXMLParserBase::readExtendedColourData(Colour &value, long &idx,
           idx = -1;
       }
     }
-    xmlFree(stringValue);
+    else
+      return -1000;
     return 1;
   }
   return -1;
@@ -2105,7 +2213,10 @@ int libvisio::VSDXMLParserBase::readExtendedColourData(boost::optional<Colour> &
 {
   Colour tmpValue;
   int ret = readExtendedColourData(tmpValue, reader);
-  value = tmpValue;
+  if (ret != -1000)
+    value = tmpValue;
+  else
+    ret = 1;
   return ret;
 }
 
@@ -2118,13 +2229,32 @@ int libvisio::VSDXMLParserBase::readExtendedColourData(Colour &value, xmlTextRea
 unsigned libvisio::VSDXMLParserBase::getIX(xmlTextReaderPtr reader)
 {
   unsigned ix = MINUS_ONE;
-  xmlChar *ixString = xmlTextReaderGetAttribute(reader, BAD_CAST("IX"));
+  const std::shared_ptr<xmlChar> ixString(xmlTextReaderGetAttribute(reader, BAD_CAST("IX")), xmlFree);
   if (ixString)
-  {
-    ix = (unsigned)xmlStringToLong(ixString);
-    xmlFree(ixString);
-  }
+    ix = (unsigned)xmlStringToLong(ixString.get());
   return ix;
+}
+
+void libvisio::VSDXMLParserBase::readTriggerId(unsigned &id, xmlTextReaderPtr reader)
+{
+  using namespace boost::spirit::qi;
+
+  unsigned triggerId = MINUS_ONE;
+  const std::shared_ptr<xmlChar> triggerString(xmlTextReaderGetAttribute(reader, BAD_CAST("F")), xmlFree);
+  if (triggerString)
+  {
+    auto first = reinterpret_cast<const char *>(triggerString.get());
+    const auto last = first + strlen(first);
+    if (phrase_parse(first, last,
+                     (
+                       lit("_XFTRIGGER")
+                       >> '(' >> omit[+alnum] >> '.'
+                       >> int_ >> '!' >> lit("EventXFMod")
+                       >> ')'
+                     ),
+                     space, triggerId) && first == last)
+      id = triggerId;
+  }
 }
 
 /* vim:set shiftwidth=2 softtabstop=2 expandtab: */

@@ -7,9 +7,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+#include <algorithm>
+#include <cassert>
 #include <string.h> // for memcpy
+#include <limits>
+#include <set>
 #include <stack>
-#include <boost/spirit/include/classic.hpp>
+#include <boost/spirit/include/qi.hpp>
 #include <unicode/ucnv.h>
 #include <unicode/utf8.h>
 
@@ -30,7 +34,85 @@ static unsigned bitmapId = 0;
 #define M_PI 3.14159265358979323846
 #endif
 
-#define SURROGATE_VALUE(h,l) (((h) - 0xd800) * 0x400 + (l) - 0xdc00 + 0x10000)
+namespace
+{
+
+void computeRounding(double &prevX, double &prevY, double x0, double y0, double x, double y, double &rounding,
+                     double &newX0, double &newY0, double &newX, double &newY, bool &sweep)
+{
+  double prevHalfLength = hypot(y0 - prevY, x0 - prevX) / 2.0;
+  double halfLength = hypot(y - y0, x - x0) / 2.0;
+  double lambda1 = atan2(y0-prevY, x0-prevX);
+  double lambda2 = atan2(y-y0, x-x0);
+  double angle = M_PI - lambda2 + lambda1;
+  if (angle < 0.0)
+    angle += 2.0*M_PI;
+  if (angle > M_PI)
+  {
+    angle -= M_PI;
+    sweep = !sweep;
+  }
+  double t = tan(angle / 2.0);
+  if (!(t < 0 || t > 0))
+    t = std::numeric_limits<double>::epsilon();
+  double q = fabs(rounding / t);
+  if (q > prevHalfLength)
+  {
+    q = prevHalfLength;
+    rounding = fabs(q * t);
+  }
+  if (q > halfLength)
+  {
+    q = halfLength;
+    rounding = fabs(q * t);
+  }
+  newX0 = x0-q*cos(lambda1);
+  newY0 = y0-q*sin(lambda1);
+  newX = x0+q*cos(lambda2);
+  newY = y0+q*sin(lambda2);
+  prevX = x0;
+  prevY = y0;
+}
+
+unsigned computeBMPDataOffset(librevenge::RVNGInputStream *const input, const unsigned long maxLength)
+{
+  assert(input);
+
+  using namespace libvisio;
+
+  // determine header size
+  unsigned headerSize = readU32(input);
+  if (headerSize > maxLength)
+    headerSize = 40; // assume v.3 bitmap header size
+  unsigned off = headerSize;
+
+  // determine palette size
+  input->seek(10, librevenge::RVNG_SEEK_CUR);
+  unsigned bpp = readU16(input);
+  // sanitize bpp - limit to the allowed range and then round up to one
+  // of the allowed values
+  if (bpp > 32)
+    bpp = 32;
+  const unsigned allowedBpp[] = {1, 4, 8, 16, 24, 32};
+  size_t bppIdx = 0;
+  while (bppIdx < VSD_NUM_ELEMENTS(allowedBpp) && bpp > allowedBpp[bppIdx])
+    ++bppIdx;
+  if (bpp < allowedBpp[bppIdx])
+    bpp = allowedBpp[bppIdx];
+  input->seek(16, librevenge::RVNG_SEEK_CUR);
+  unsigned paletteColors = readU32(input);
+  if (bpp < 16 && paletteColors == 0)
+    paletteColors = 1 << bpp;
+  assert(maxLength >= off);
+  if (paletteColors > 0 && (paletteColors < (maxLength - off) / 4))
+    off += 4 * paletteColors;
+
+  off += 14; // file header size
+
+  return off;
+}
+
+} // anonymous namespace
 
 libvisio::VSDContentCollector::VSDContentCollector(
   librevenge::RVNGDrawingInterface *painter,
@@ -41,25 +123,25 @@ libvisio::VSDContentCollector::VSDContentCollector(
 ) :
   m_painter(painter), m_isPageStarted(false), m_pageWidth(0.0), m_pageHeight(0.0),
   m_shadowOffsetX(0.0), m_shadowOffsetY(0.0),
-  m_scale(1.0), m_x(0.0), m_y(0.0), m_originalX(0.0), m_originalY(0.0), m_xform(), m_txtxform(0), m_misc(),
-  m_currentFillGeometry(), m_currentLineGeometry(), m_groupXForms(groupXFormsSequence.empty() ? 0 : &groupXFormsSequence[0]),
+  m_scale(1.0), m_x(0.0), m_y(0.0), m_originalX(0.0), m_originalY(0.0), m_xform(), m_txtxform(), m_misc(),
+  m_currentFillGeometry(), m_currentLineGeometry(), m_groupXForms(groupXFormsSequence.empty() ? nullptr : &groupXFormsSequence[0]),
   m_currentForeignData(), m_currentOLEData(), m_currentForeignProps(), m_currentShapeId(0), m_foreignType((unsigned)-1),
   m_foreignFormat(0), m_foreignOffsetX(0.0), m_foreignOffsetY(0.0), m_foreignWidth(0.0), m_foreignHeight(0.0),
   m_noLine(false), m_noFill(false), m_noShow(false), m_fonts(),
   m_currentLevel(0), m_isShapeStarted(false),
   m_groupXFormsSequence(groupXFormsSequence), m_groupMembershipsSequence(groupMembershipsSequence),
   m_groupMemberships(m_groupMembershipsSequence.begin()),
-  m_currentPageNumber(0), m_shapeOutputDrawing(0), m_shapeOutputText(0),
+  m_currentPageNumber(0), m_shapeOutputDrawing(nullptr), m_shapeOutputText(nullptr),
   m_pageOutputDrawing(), m_pageOutputText(), m_documentPageShapeOrders(documentPageShapeOrders),
   m_pageShapeOrder(m_documentPageShapeOrders.begin()), m_isFirstGeometry(true), m_NURBSData(), m_polylineData(),
-  m_textStream(), m_names(), m_stencilNames(), m_fields(), m_stencilFields(), m_fieldIndex(0),
-  m_textFormat(VSD_TEXT_ANSI), m_charFormats(), m_paraFormats(), m_lineStyle(), m_fillStyle(), m_textBlockStyle(),
-  m_themeReference(), m_defaultCharStyle(), m_defaultParaStyle(), m_currentStyleSheet(0), m_styles(styles),
-  m_stencils(stencils), m_stencilShape(0), m_isStencilStarted(false), m_currentGeometryCount(0),
-  m_backgroundPageID(MINUS_ONE), m_currentPageID(0), m_currentPage(), m_pages(),
+  m_currentText(), m_names(), m_stencilNames(), m_fields(), m_stencilFields(), m_fieldIndex(0),
+  m_charFormats(), m_paraFormats(), m_lineStyle(), m_fillStyle(), m_textBlockStyle(),
+  m_defaultCharStyle(), m_defaultParaStyle(), m_currentStyleSheet(0), m_styles(styles),
+  m_stencils(stencils), m_stencilShape(nullptr), m_isStencilStarted(false), m_currentGeometryCount(0),
+  m_backgroundPageID(MINUS_ONE), m_currentPageID(0), m_currentPage(), m_pages(), m_layerList(),
   m_splineControlPoints(), m_splineKnotVector(), m_splineX(0.0), m_splineY(0.0),
   m_splineLastKnot(0.0), m_splineDegree(0), m_splineLevel(0), m_currentShapeLevel(0),
-  m_isBackgroundPage(false)
+  m_isBackgroundPage(false), m_currentLayerList(), m_currentLayerMem(), m_tabSets(), m_documentTheme(nullptr)
 {
 }
 
@@ -172,21 +254,49 @@ void libvisio::VSDContentCollector::_flushShape()
   unsigned numPathElements = 0;
   unsigned numForeignElements = 0;
   unsigned numTextElements = 0;
+  unsigned shapeId = m_currentShapeId;
   if (m_fillStyle.pattern && !m_currentFillGeometry.empty())
     numPathElements++;
   if (m_lineStyle.pattern && !m_currentLineGeometry.empty())
     numPathElements++;
   if (m_currentForeignData.size() && m_currentForeignProps["librevenge:mime-type"] && m_foreignWidth != 0.0 && m_foreignHeight != 0.0)
     numForeignElements++;
-  if (m_textStream.size())
-    numTextElements++;
+  if (!m_currentText.empty())
+  {
+    if ((m_currentText.m_format == VSD_TEXT_UTF16
+         && (m_currentText.m_data.size() >= 2 && (m_currentText.m_data.getDataBuffer()[0] || m_currentText.m_data.getDataBuffer()[1])))
+        || m_currentText.m_data.getDataBuffer()[0])
+    {
+      numTextElements++;
+    }
+  }
 
   if (numPathElements+numForeignElements+numTextElements > 1)
-    m_shapeOutputDrawing->addStartLayer(librevenge::RVNGPropertyList());
+  {
+    librevenge::RVNGPropertyList propList;
+    if (shapeId && shapeId != MINUS_ONE)
+    {
+      librevenge::RVNGString stringId;
+      stringId.sprintf("id%u", shapeId);
+      propList.insert("draw:id", stringId);
+      shapeId = MINUS_ONE;
+    }
+    m_shapeOutputDrawing->addStartLayer(propList);
+  }
 
   if (numPathElements > 1 && (numForeignElements || numTextElements))
+  {
+    librevenge::RVNGPropertyList propList;
+    if (shapeId && shapeId != MINUS_ONE)
+    {
+      librevenge::RVNGString stringId;
+      stringId.sprintf("id%u", shapeId);
+      propList.insert("draw:id", stringId);
+      shapeId = MINUS_ONE;
+    }
     m_shapeOutputDrawing->addStartLayer(librevenge::RVNGPropertyList());
-  _flushCurrentPath();
+  }
+  _flushCurrentPath(shapeId);
   if (numPathElements > 1 && (numForeignElements || numTextElements))
     m_shapeOutputDrawing->addEndLayer();
   _flushCurrentForeignData();
@@ -203,7 +313,7 @@ void libvisio::VSDContentCollector::_flushShape()
   m_isShapeStarted = false;
 }
 
-void libvisio::VSDContentCollector::_flushCurrentPath()
+void libvisio::VSDContentCollector::_flushCurrentPath(unsigned shapeId)
 {
   librevenge::RVNGPropertyList styleProps;
   _lineProperties(m_lineStyle, styleProps);
@@ -218,14 +328,14 @@ void libvisio::VSDContentCollector::_flushCurrentPath()
   {
     bool firstPoint = true;
     bool wasMove = false;
-    for (unsigned i = 0; i < m_currentFillGeometry.size(); i++)
+    for (auto &i : m_currentFillGeometry)
     {
       if (firstPoint)
       {
         firstPoint = false;
         wasMove = true;
       }
-      else if (m_currentFillGeometry[i]["librevenge:path-action"]->getStr() == "M")
+      else if (i["librevenge:path-action"]->getStr() == "M")
       {
         if (!tmpPath.empty())
         {
@@ -247,7 +357,7 @@ void libvisio::VSDContentCollector::_flushCurrentPath()
       }
       else
         wasMove = false;
-      tmpPath.push_back(m_currentFillGeometry[i]);
+      tmpPath.push_back(i);
     }
     if (!tmpPath.empty())
     {
@@ -266,11 +376,18 @@ void libvisio::VSDContentCollector::_flushCurrentPath()
     if (!tmpPath.empty())
     {
       librevenge::RVNGPropertyListVector path;
-      for (unsigned i = 0; i < tmpPath.size(); ++i)
-        path.append(tmpPath[i]);
+      _convertToPath(tmpPath, path, m_scale*m_lineStyle.rounding);
       m_shapeOutputDrawing->addStyle(fillPathProps);
       librevenge::RVNGPropertyList propList;
       propList.insert("svg:d", path);
+      if (shapeId && shapeId != MINUS_ONE)
+      {
+        librevenge::RVNGString stringId;
+        stringId.sprintf("id%u", shapeId);
+        propList.insert("draw:id", stringId);
+        shapeId = MINUS_ONE;
+      }
+      _appendVisibleAndPrintable(propList);
       m_shapeOutputDrawing->addPath(propList);
     }
   }
@@ -285,22 +402,22 @@ void libvisio::VSDContentCollector::_flushCurrentPath()
     double y = 0.0;
     double prevX = 0.0;
     double prevY = 0.0;
-    for (unsigned i = 0; i < m_currentLineGeometry.size(); i++)
+    for (auto &i : m_currentLineGeometry)
     {
       if (firstPoint)
       {
         firstPoint = false;
         wasMove = true;
-        x = m_currentLineGeometry[i]["svg:x"]->getDouble();
-        y = m_currentLineGeometry[i]["svg:y"]->getDouble();
+        x = i["svg:x"]->getDouble();
+        y = i["svg:y"]->getDouble();
       }
-      else if (m_currentLineGeometry[i]["librevenge:path-action"]->getStr() == "M")
+      else if (i["librevenge:path-action"]->getStr() == "M")
       {
         if (!tmpPath.empty())
         {
           if (!wasMove)
           {
-            if ((x == prevX) && (y == prevY))
+            if (VSD_ALMOST_ZERO(x - prevX) && VSD_ALMOST_ZERO(y - prevY))
             {
               if (tmpPath.back()["librevenge:path-action"]->getStr() != "Z")
               {
@@ -315,23 +432,23 @@ void libvisio::VSDContentCollector::_flushCurrentPath()
             tmpPath.pop_back();
           }
         }
-        x = m_currentLineGeometry[i]["svg:x"]->getDouble();
-        y = m_currentLineGeometry[i]["svg:y"]->getDouble();
+        x = i["svg:x"]->getDouble();
+        y = i["svg:y"]->getDouble();
         wasMove = true;
       }
       else
         wasMove = false;
-      tmpPath.push_back(m_currentLineGeometry[i]);
-      if (m_currentLineGeometry[i]["svg:x"])
-        prevX = m_currentLineGeometry[i]["svg:x"]->getDouble();
-      if (m_currentLineGeometry[i]["svg:y"])
-        prevY = m_currentLineGeometry[i]["svg:y"]->getDouble();
+      tmpPath.push_back(i);
+      if (i["svg:x"])
+        prevX = i["svg:x"]->getDouble();
+      if (i["svg:y"])
+        prevY = i["svg:y"]->getDouble();
     }
     if (!tmpPath.empty())
     {
       if (!wasMove)
       {
-        if ((x == prevX) && (y == prevY))
+        if (VSD_ALMOST_ZERO(x - prevX) && VSD_ALMOST_ZERO(y - prevY))
         {
           if (tmpPath.back()["librevenge:path-action"]->getStr() != "Z")
           {
@@ -349,32 +466,169 @@ void libvisio::VSDContentCollector::_flushCurrentPath()
     if (!tmpPath.empty())
     {
       librevenge::RVNGPropertyListVector path;
-      for (unsigned i = 0; i < tmpPath.size(); ++i)
-        path.append(tmpPath[i]);
+      _convertToPath(tmpPath, path, m_scale*m_lineStyle.rounding);
       m_shapeOutputDrawing->addStyle(linePathProps);
       librevenge::RVNGPropertyList propList;
       propList.insert("svg:d", path);
+      if (shapeId && shapeId != MINUS_ONE)
+      {
+        librevenge::RVNGString stringId;
+        stringId.sprintf("id%u", shapeId);
+        propList.insert("draw:id", stringId);
+        shapeId = MINUS_ONE;
+      }
+      _appendVisibleAndPrintable(propList);
       m_shapeOutputDrawing->addPath(propList);
     }
   }
   m_currentLineGeometry.clear();
 }
 
+void libvisio::VSDContentCollector::_convertToPath(const std::vector<librevenge::RVNGPropertyList> &segmentVector,
+                                                   librevenge::RVNGPropertyListVector &path, double rounding)
+{
+  if (segmentVector.empty())
+    return;
+  if (rounding > 0.0)
+  {
+    double prevX = segmentVector[0]["svg:x"] ? segmentVector[0]["svg:x"]->getDouble() : 0.0;
+    double prevY = segmentVector[0]["svg:y"] ? segmentVector[0]["svg:y"]->getDouble() : 0.0;
+    unsigned moveIndex = 0;
+    std::vector<librevenge::RVNGPropertyList> tmpSegment;
+    for (unsigned i = 0; i < segmentVector.size(); ++i)
+    {
+      if (segmentVector[i]["librevenge:path-action"] && segmentVector[i]["librevenge:path-action"]->getStr() == "M")
+      {
+        _convertToPath(tmpSegment, path, 0.0);
+        tmpSegment.clear();
+      }
+      tmpSegment.push_back(segmentVector[i]);
+      if (segmentVector[i]["librevenge:path-action"] && segmentVector[i]["librevenge:path-action"]->getStr() == "M")
+      {
+        prevX = segmentVector[i]["svg:x"] ? segmentVector[i]["svg:x"]->getDouble() : 0.0;
+        prevY = segmentVector[i]["svg:y"] ? segmentVector[i]["svg:y"]->getDouble() : 0.0;
+        moveIndex = i;
+      }
+      else if (segmentVector[i]["librevenge:path-action"] && segmentVector[i]["librevenge:path-action"]->getStr() == "L")
+      {
+        double x0 = segmentVector[i]["svg:x"] ? segmentVector[i]["svg:x"]->getDouble() : 0.0;
+        double y0 = segmentVector[i]["svg:y"] ? segmentVector[i]["svg:y"]->getDouble() : 0.0;
+        if (i+1 < segmentVector.size() && segmentVector[i+1]["librevenge:path-action"] && segmentVector[i+1]["librevenge:path-action"]->getStr() == "L")
+        {
+          double x = segmentVector[i+1]["svg:x"] ? segmentVector[i+1]["svg:x"]->getDouble() : 0.0;
+          double y = segmentVector[i+1]["svg:y"] ? segmentVector[i+1]["svg:y"]->getDouble() : 0.0;
+          double newX0, newY0, newX, newY;
+          double tmpRounding(rounding);
+          bool sweep(true);
+          computeRounding(prevX, prevY, x0, y0, x, y, tmpRounding, newX0, newY0, newX, newY, sweep);
+          tmpSegment.back().insert("svg:x", newX0);
+          tmpSegment.back().insert("svg:y", newY0);
+          librevenge::RVNGPropertyList q;
+          q.insert("librevenge:path-action", "Q");
+          q.insert("svg:x1", x0);
+          q.insert("svg:y1", y0);
+          q.insert("svg:x", newX);
+          q.insert("svg:y", newY);
+          tmpSegment.push_back(q);
+        }
+        else if (i+1 < segmentVector.size() && segmentVector[i+1]["librevenge:path-action"] && segmentVector[i+1]["librevenge:path-action"]->getStr() == "Z")
+        {
+          if (tmpSegment.size() >= 2 &&
+              segmentVector[moveIndex]["librevenge:path-action"] &&
+              segmentVector[moveIndex]["librevenge:path-action"]->getStr() == "M" &&
+              segmentVector[moveIndex+1]["librevenge:path-action"] &&
+              segmentVector[moveIndex+1]["librevenge:path-action"]->getStr() == "L")
+          {
+            double x = segmentVector[moveIndex+1]["svg:x"] ? segmentVector[moveIndex+1]["svg:x"]->getDouble() : 0.0;
+            double y = segmentVector[moveIndex+1]["svg:y"] ? segmentVector[moveIndex+1]["svg:y"]->getDouble() : 0.0;
+            double newX0, newY0, newX, newY;
+            double tmpRounding(rounding);
+            bool sweep(true);
+            computeRounding(prevX, prevY, x0, y0, x, y, tmpRounding, newX0, newY0, newX, newY, sweep);
+            tmpSegment.back().insert("svg:x", newX0);
+            tmpSegment.back().insert("svg:y", newY0);
+            librevenge::RVNGPropertyList q;
+            q.insert("librevenge:path-action", "Q");
+            q.insert("svg:x1", x0);
+            q.insert("svg:y1", y0);
+            q.insert("svg:x", newX);
+            q.insert("svg:y", newY);
+            tmpSegment.push_back(q);
+            tmpSegment[0].insert("svg:x", newX) ;
+            tmpSegment[0].insert("svg:y", newY);
+          }
+        }
+      }
+      else if (segmentVector[i]["librevenge:path-action"] && segmentVector[i]["librevenge:path-action"]->getStr() == "Z")
+      {
+        prevX = segmentVector[moveIndex]["svg:x"] ? segmentVector[moveIndex]["svg:x"]->getDouble() : 0.0;
+        prevY = segmentVector[moveIndex]["svg:y"] ? segmentVector[moveIndex]["svg:y"]->getDouble() : 0.0;
+      }
+      else
+      {
+        prevX = segmentVector[i]["svg:x"] ? segmentVector[i]["svg:x"]->getDouble() : 0.0;
+        prevY = segmentVector[i]["svg:y"] ? segmentVector[i]["svg:y"]->getDouble() : 0.0;
+      }
+    }
+    _convertToPath(tmpSegment, path, 0.0);
+  }
+  else
+  {
+    double prevX = DBL_MAX;
+    double prevY = DBL_MAX;
+    for (const auto &i : segmentVector)
+    {
+      if (!i["librevenge:path-action"])
+        continue;
+      double x = DBL_MAX;
+      double y = DBL_MAX;
+      if (i["svg:x"] && i["svg:y"])
+
+      {
+        x = i["svg:x"]->getDouble();
+        y = i["svg:y"]->getDouble();
+      }
+      // skip segment that have length 0.0
+      if (!VSD_ALMOST_ZERO(x-prevX) || !VSD_ALMOST_ZERO(y-prevY))
+      {
+        path.append(i);
+        prevX = x;
+        prevY = y;
+      }
+    }
+  }
+}
+
 void libvisio::VSDContentCollector::_flushText()
 {
-  if (!m_textStream.size() || m_misc.m_hideText)
+  /* Do not output empty text objects. */
+  if (m_currentText.empty() || m_misc.m_hideText)
     return;
+  else
+    // Check whether the buffer contains only the terminating NULL character
+  {
+    if (m_currentText.m_format == VSD_TEXT_UTF16)
+    {
+      if (m_currentText.m_data.size() < 2)
+        return;
+      else if (!(m_currentText.m_data.getDataBuffer()[0]) && !(m_currentText.m_data.getDataBuffer()[1]))
+        return;
+    }
+    else if (!(m_currentText.m_data.getDataBuffer()[0]))
+      return;
+  }
 
+  /* Fill the text object/frame properties */
   double xmiddle = m_txtxform ? m_txtxform->width / 2.0 : m_xform.width / 2.0;
   double ymiddle = m_txtxform ? m_txtxform->height / 2.0 : m_xform.height / 2.0;
 
-  transformPoint(xmiddle,ymiddle, m_txtxform);
+  transformPoint(xmiddle,ymiddle, m_txtxform.get());
 
   double x = xmiddle - (m_txtxform ? m_txtxform->width / 2.0 : m_xform.width / 2.0);
   double y = ymiddle - (m_txtxform ? m_txtxform->height / 2.0 : m_xform.height / 2.0);
 
   double angle = 0.0;
-  transformAngle(angle, m_txtxform);
+  transformAngle(angle, m_txtxform.get());
 
   librevenge::RVNGPropertyList textBlockProps;
 
@@ -413,220 +667,558 @@ void libvisio::VSDContentCollector::_flushText()
     break;
   }
 
-  if (m_charFormats.empty())
-    m_charFormats.push_back(m_defaultCharStyle);
-  if (m_paraFormats.empty())
-    m_paraFormats.push_back(m_defaultParaStyle);
+  _appendVisibleAndPrintable(textBlockProps);
 
-  unsigned numCharsInText = (unsigned)(m_textFormat == VSD_TEXT_UTF16 ? m_textStream.size() / 2 : m_textStream.size());
-
-  for (unsigned iChar = 0; iChar < m_charFormats.size(); iChar++)
-  {
-    if (m_charFormats[iChar].charCount)
-      numCharsInText -= m_charFormats[iChar].charCount;
-    else
-      m_charFormats[iChar].charCount = numCharsInText;
-  }
-
-  numCharsInText = (unsigned)(m_textFormat == VSD_TEXT_UTF16 ? m_textStream.size() / 2 : m_textStream.size());
-
-  for (unsigned iPara = 0; iPara < m_paraFormats.size(); iPara++)
-  {
-    if (m_paraFormats[iPara].charCount)
-      numCharsInText -= m_paraFormats[iPara].charCount;
-    else
-      m_paraFormats[iPara].charCount = numCharsInText;
-  }
-
+  /* Start the text object. */
   m_shapeOutputText->addStartTextObject(textBlockProps);
 
-  unsigned int charIndex = 0;
-  unsigned int paraCharCount = 0;
-  unsigned long textBufferPosition = 0;
-  const unsigned char *pTextBuffer = m_textStream.getDataBuffer();
-  const unsigned long nTextBufferLength = m_textStream.size();
-
-  for (std::vector<VSDParaStyle>::iterator paraIt = m_paraFormats.begin();
-       paraIt != m_paraFormats.end() && charIndex < m_charFormats.size(); ++paraIt)
+  /* Assure that the different styles have at least one element,
+   * corresponding to the default style. */
+  if (m_charFormats.empty())
   {
-    librevenge::RVNGPropertyList paraProps;
-
-    paraProps.insert("fo:text-indent", (*paraIt).indFirst);
-    paraProps.insert("fo:margin-left", (*paraIt).indLeft);
-    paraProps.insert("fo:margin-right", (*paraIt).indRight);
-    paraProps.insert("fo:margin-top", (*paraIt).spBefore);
-    paraProps.insert("fo:margin-bottom", (*paraIt).spAfter);
-    switch ((*paraIt).align)
-    {
-    case 0: // left
-      if (!(*paraIt).flags)
-        paraProps.insert("fo:text-align", "left");
-      else
-        paraProps.insert("fo:text-align", "end");
-      break;
-    case 2: // right
-      if (!(*paraIt).flags)
-        paraProps.insert("fo:text-align", "end");
-      else
-        paraProps.insert("fo:text-align", "left");
-      break;
-    case 3: // justify
-      paraProps.insert("fo:text-align", "justify");
-      break;
-    case 4: // full
-      paraProps.insert("fo:text-align", "full");
-      break;
-    default: // center
-      paraProps.insert("fo:text-align", "center");
-      break;
-    }
-    if ((*paraIt).spLine > 0)
-      paraProps.insert("fo:line-height", (*paraIt).spLine);
-    else
-      paraProps.insert("fo:line-height", -(*paraIt).spLine, librevenge::RVNG_PERCENT);
-
-    m_shapeOutputText->addOpenParagraph(paraProps);
-
-    paraCharCount = (*paraIt).charCount;
-
-    // Find char format that overlaps
-    while (charIndex < m_charFormats.size() && paraCharCount)
-    {
-      paraCharCount -= m_charFormats[charIndex].charCount;
-
-      librevenge::RVNGPropertyList textProps;
-
-      librevenge::RVNGString fontName;
-      if (m_charFormats[charIndex].font.m_data.size())
-        _convertDataToString(fontName, m_charFormats[charIndex].font.m_data, m_charFormats[charIndex].font.m_format);
-      else
-        fontName = "Arial";
-
-      textProps.insert("style:font-name", fontName);
-
-      if (m_charFormats[charIndex].bold) textProps.insert("fo:font-weight", "bold");
-      if (m_charFormats[charIndex].italic) textProps.insert("fo:font-style", "italic");
-      if (m_charFormats[charIndex].underline) textProps.insert("style:text-underline-type", "single");
-      if (m_charFormats[charIndex].doubleunderline) textProps.insert("style:text-underline-type", "double");
-      if (m_charFormats[charIndex].strikeout) textProps.insert("style:text-line-through-type", "single");
-      if (m_charFormats[charIndex].doublestrikeout) textProps.insert("style:text-line-through-type", "double");
-      if (m_charFormats[charIndex].allcaps) textProps.insert("fo:text-transform", "uppercase");
-      if (m_charFormats[charIndex].initcaps) textProps.insert("fo:text-transform", "capitalize");
-      if (m_charFormats[charIndex].smallcaps) textProps.insert("fo:font-variant", "small-caps");
-      if (m_charFormats[charIndex].superscript) textProps.insert("style:text-position", "super");
-      if (m_charFormats[charIndex].subscript) textProps.insert("style:text-position", "sub");
-      textProps.insert("fo:font-size", m_charFormats[charIndex].size*72.0, librevenge::RVNG_POINT);
-      textProps.insert("fo:color", getColourString(m_charFormats[charIndex].colour));
-      double opacity = 1.0;
-      if (m_charFormats[charIndex].colour.a)
-        opacity -= (double)(m_charFormats[charIndex].colour.a)/255.0;
-      textProps.insert("svg:stroke-opacity", opacity, librevenge::RVNG_PERCENT);
-      textProps.insert("svg:fill-opacity", opacity, librevenge::RVNG_PERCENT);
-      // TODO: In draw, text span background cannot be specified the same way as in writer span
-      if (m_textBlockStyle.isTextBkgndFilled)
-      {
-        textProps.insert("fo:background-color", getColourString(m_textBlockStyle.textBkgndColour));
-#if 0
-        if (m_textBlockStyle.textBkgndColour.a)
-          textProps.insert("fo:background-opacity", 1.0 - m_textBlockStyle.textBkgndColour.a/255.0, librevenge::RVNG_PERCENT);
-#endif
-      }
-
-      librevenge::RVNGString text;
-
-      if (m_textFormat == VSD_TEXT_UTF16)
-      {
-        unsigned long max = m_charFormats[charIndex].charCount <= (m_textStream.size()/2) ? m_charFormats[charIndex].charCount : (m_textStream.size()/2);
-        VSD_DEBUG_MSG(("Charcount: %d, max: %lu, stream size: %lu\n", m_charFormats[charIndex].charCount, max, (unsigned long)m_textStream.size()));
-        max = (m_charFormats[charIndex].charCount == 0 && m_textStream.size()) ? m_textStream.size()/2 : max;
-        VSD_DEBUG_MSG(("Charcount: %d, max: %lu, stream size: %lu\n", m_charFormats[charIndex].charCount, max, (unsigned long)m_textStream.size()));
-        std::vector<unsigned char> tmpBuffer;
-        unsigned i = 0;
-        for (; i < max*2 && textBufferPosition+i <nTextBufferLength; ++i)
-          tmpBuffer.push_back(pTextBuffer[textBufferPosition+i]);
-        if (!paraCharCount && tmpBuffer.size() >= 2)
-        {
-          while (tmpBuffer.size() >= 2 && tmpBuffer[tmpBuffer.size() - 2] == 0 && tmpBuffer[tmpBuffer.size() - 1] == 0)
-          {
-            tmpBuffer.pop_back();
-            tmpBuffer.pop_back();
-          }
-          if (tmpBuffer.size() >= 2)
-          {
-            if (tmpBuffer[tmpBuffer.size() - 1] == 0 && (tmpBuffer[tmpBuffer.size() - 2] == 0x0a ||
-                                                         tmpBuffer[tmpBuffer.size() - 2] == '\n' || tmpBuffer[tmpBuffer.size() - 2] == 0x0e))
-            {
-              tmpBuffer.pop_back();
-              tmpBuffer.pop_back();
-            }
-          }
-          else
-            tmpBuffer.clear();
-        }
-
-        if (!tmpBuffer.empty())
-          appendCharacters(text, tmpBuffer);
-        textBufferPosition += i;
-      }
-      else if (m_textFormat == VSD_TEXT_UTF8)
-      {
-        unsigned long max = m_charFormats[charIndex].charCount <= m_textStream.size() ? m_charFormats[charIndex].charCount : m_textStream.size();
-        std::vector<unsigned char> tmpBuffer;
-        unsigned i = 0;
-        for (; i < max && textBufferPosition+i <nTextBufferLength; ++i)
-          tmpBuffer.push_back(pTextBuffer[textBufferPosition+i]);
-        if (!paraCharCount && !tmpBuffer.empty())
-        {
-          while (!tmpBuffer.empty() && tmpBuffer.back() == 0)
-            tmpBuffer.pop_back();
-          if (!tmpBuffer.empty() && (tmpBuffer.back() == 0x0a || tmpBuffer.back() == '\n' || tmpBuffer.back() == 0x0e))
-            tmpBuffer.back() = 0;
-        }
-        if (!tmpBuffer.empty() && tmpBuffer[0])
-          appendCharacters(text, tmpBuffer, VSD_TEXT_UTF8);
-        textBufferPosition += i;
-      }
-      else
-      {
-        unsigned long max = m_charFormats[charIndex].charCount <= m_textStream.size() ? m_charFormats[charIndex].charCount : m_textStream.size();
-        max = (m_charFormats[charIndex].charCount == 0 && m_textStream.size()) ? m_textStream.size() : max;
-        std::vector<unsigned char> tmpBuffer;
-        unsigned i = 0;
-        for (; i < max && textBufferPosition+i <nTextBufferLength; ++i)
-          tmpBuffer.push_back(pTextBuffer[textBufferPosition+i]);
-        if (!paraCharCount && !tmpBuffer.empty())
-        {
-          while (!tmpBuffer.empty() && tmpBuffer.back() == 0)
-            tmpBuffer.pop_back();
-          if (!tmpBuffer.empty() && (tmpBuffer.back() == 0x0a || tmpBuffer.back() == '\n' || tmpBuffer.back() == 0x0e))
-            tmpBuffer.back() = 0;
-        }
-        if (!tmpBuffer.empty())
-          appendCharacters(text, tmpBuffer, m_charFormats[charIndex].font.m_format);
-        textBufferPosition += i;
-      }
-
-      VSD_DEBUG_MSG(("Text: %s\n", text.cstr()));
-      m_shapeOutputText->addOpenSpan(textProps);
-      m_shapeOutputText->addInsertText(text);
-      m_shapeOutputText->addCloseSpan();
-
-      charIndex++;
-      if (charIndex < m_charFormats.size() && paraCharCount && m_charFormats[charIndex].charCount > paraCharCount)
-      {
-        // Insert duplicate
-        std::vector<VSDCharStyle>::iterator charIt = m_charFormats.begin() + charIndex;
-        VSDCharStyle tmpCharFormat = m_charFormats[charIndex];
-        m_charFormats.insert(charIt, tmpCharFormat);
-        m_charFormats[charIndex].charCount = paraCharCount;
-        m_charFormats[charIndex+1].charCount -= paraCharCount;
-      }
-    }
-    m_shapeOutputText->addCloseParagraph();
+    m_charFormats.push_back(m_defaultCharStyle);
+    m_charFormats.back().charCount = 0;
+  }
+  if (m_paraFormats.empty())
+  {
+    m_paraFormats.push_back(m_defaultParaStyle);
+    m_paraFormats.back().charCount = 0;
+  }
+  if (m_tabSets.empty())
+  {
+    m_tabSets.push_back(VSDTabSet());
+    m_tabSets.back().m_numChars = 0;
   }
 
+  /* Helper variables used to iterate over the text buffer */
+  std::vector<VSDParaStyle>::const_iterator paraIt = m_paraFormats.begin();
+  std::vector<VSDCharStyle>::const_iterator charIt = m_charFormats.begin();
+  std::vector<VSDTabSet>::const_iterator tabIt = m_tabSets.begin();
+
+  bool isParagraphOpened(false);
+  bool isSpanOpened(false);
+  bool isParagraphWithoutSpan(false);
+
+  VSDBullet currentBullet;
+
+  unsigned paraNumRemaining(paraIt->charCount);
+  unsigned charNumRemaining(charIt->charCount);
+  unsigned tabNumRemaining(tabIt->m_numChars);
+
+  std::vector<unsigned char> sOutputVector;
+  librevenge::RVNGString sOutputText;
+
+  // Unfortunately, we have to handle the unicode formats differently then the 8-bit formats
+  if (m_currentText.m_format == VSD_TEXT_UTF8 || m_currentText.m_format == VSD_TEXT_UTF16)
+  {
+    std::vector<unsigned char> tmpBuffer(m_currentText.m_data.size());
+    memcpy(&tmpBuffer[0], m_currentText.m_data.getDataBuffer(), m_currentText.m_data.size());
+    librevenge::RVNGString textString;
+    appendCharacters(textString, tmpBuffer, m_currentText.m_format);
+    /* Iterate over the text character by character */
+    librevenge::RVNGString::Iter textIt(textString);
+    for (textIt.rewind(); textIt.next();)
+    {
+      /* Any character will cause a paragraph to open if it is not yet opened. */
+      if (!isParagraphOpened)
+      {
+        librevenge::RVNGPropertyList paraProps;
+        _fillParagraphProperties(paraProps, *paraIt);
+
+        if (m_textBlockStyle.defaultTabStop > 0.0)
+          paraProps.insert("style:tab-stop-distance", m_textBlockStyle.defaultTabStop);
+
+        _fillTabSet(paraProps, *tabIt);
+
+        VSDBullet bullet;
+        _bulletFromParaFormat(bullet, *paraIt);
+
+        /* Bullet definition changed with regard to the last paragraph style. */
+        if (bullet != currentBullet)
+        {
+          /* If the previous paragraph style had a bullet, close the list level. */
+          if (!!currentBullet)
+            m_shapeOutputText->addCloseUnorderedListLevel();
+
+          currentBullet = bullet;
+          /* If the current paragraph style has a bullet, open a new list level. */
+          if (!!currentBullet)
+          {
+            librevenge::RVNGPropertyList bulletList;
+            _listLevelFromBullet(bulletList, currentBullet);
+            m_shapeOutputText->addOpenUnorderedListLevel(bulletList);
+          }
+        }
+
+        if (!currentBullet)
+          m_shapeOutputText->addOpenParagraph(paraProps);
+        else
+          m_shapeOutputText->addOpenListElement(paraProps);
+        isParagraphOpened = true;
+        isParagraphWithoutSpan = true;
+      }
+
+      /* Any character will cause a span to open if it is not yet opened.
+       * The additional conditions aim to avoid superfluous empty span but
+       * also a paragraph without span at all. */
+      if (!isSpanOpened && ((*(textIt()) != '\n') || isParagraphWithoutSpan))
+      {
+        librevenge::RVNGPropertyList textProps;
+        _fillCharProperties(textProps, *charIt);
+
+        // TODO: In draw, text span background cannot be specified the same way as in writer span
+        if (m_textBlockStyle.isTextBkgndFilled)
+        {
+          textProps.insert("fo:background-color", getColourString(m_textBlockStyle.textBkgndColour));
+#if 0
+          if (m_textBlockStyle.textBkgndColour.a)
+            textProps.insert("fo:background-opacity", 1.0 - m_textBlockStyle.textBkgndColour.a/255.0, librevenge::RVNG_PERCENT);
+#endif
+        }
+        m_shapeOutputText->addOpenSpan(textProps);
+        isSpanOpened = true;
+        isParagraphWithoutSpan = false;
+      }
+
+      /* Current character is a paragraph break,
+       * which will cause the paragraph to close. */
+      if (*(textIt()) == '\n')
+      {
+        if (!sOutputText.empty())
+          m_shapeOutputText->addInsertText(sOutputText);
+        sOutputText.clear();
+        if (isSpanOpened)
+        {
+          m_shapeOutputText->addCloseSpan();
+          isSpanOpened = false;
+        }
+
+        if (isParagraphOpened)
+        {
+          if (!currentBullet)
+            m_shapeOutputText->addCloseParagraph();
+          else
+            m_shapeOutputText->addCloseListElement();
+          isParagraphOpened = false;
+        }
+      }
+      /* Current character is a tabulator. We have to output
+       * the current text buffer and insert the tab. */
+      else if (*(textIt()) == '\t')
+      {
+        if (!sOutputText.empty())
+          m_shapeOutputText->addInsertText(sOutputText);
+        sOutputText.clear();
+        m_shapeOutputText->addInsertTab();
+      }
+      /* Current character is a field placeholder. We append
+       * to the current text buffer a text representation
+       * of the field. */
+      else if (strlen(textIt()) == 3 &&
+               textIt()[0] == '\xef' &&
+               textIt()[1] == '\xbf' &&
+               textIt()[2] == '\xbc')
+        _appendField(sOutputText);
+      /* We have a normal UTF8 character and we append it
+       * to the current text buffer. */
+      else
+        sOutputText.append(textIt());
+
+      /* Decrease the count of remaining characters in the same paragraph,
+       * if it is possible. */
+      if (paraNumRemaining)
+        paraNumRemaining--;
+      /* Fetch next paragraph style if it exists. If not, just use the
+       * last one. */
+      if (!paraNumRemaining)
+      {
+        ++paraIt;
+        if (paraIt != m_paraFormats.end())
+          paraNumRemaining = paraIt->charCount;
+        else
+          --paraIt;
+      }
+
+      /* Decrease the count of remaining characters in the same span,
+       * if it is possible. */
+      if (charNumRemaining)
+        charNumRemaining--;
+      /* Fetch next character style if it exists and close span, since
+       * the next span will have to use the new character style.
+       * If there is no more character style to fetch, just finish using
+       * the last one. */
+      if (!charNumRemaining)
+      {
+        ++charIt;
+        if (charIt != m_charFormats.end())
+        {
+          charNumRemaining = charIt->charCount;
+          if (isSpanOpened)
+          {
+            if (!sOutputText.empty())
+              m_shapeOutputText->addInsertText(sOutputText);
+            sOutputText.clear();
+            m_shapeOutputText->addCloseSpan();
+            isSpanOpened = false;
+          }
+        }
+        else
+          --charIt;
+      }
+
+      /* Decrease the count of remaining characters using the same
+       * tab-set definition, if it is possible. */
+      if (tabNumRemaining)
+        tabNumRemaining--;
+      /* Fetch next tab-set definition if it exists. If not, just use the
+       * last one. */
+      if (!tabNumRemaining)
+      {
+        ++tabIt;
+        if (tabIt != m_tabSets.end())
+          tabNumRemaining = tabIt->m_numChars;
+        else
+          --tabIt;
+      }
+    }
+  }
+  else // 8-bit charsets
+  {
+    /* Iterate over the text character by character */
+    const unsigned char *tmpBuffer = m_currentText.m_data.getDataBuffer();
+    unsigned long tmpBufferLength = m_currentText.m_data.size();
+    // Remove the terminating \0 character from the buffer
+    while (tmpBufferLength > 1 &&!tmpBuffer[tmpBufferLength-1])
+    {
+      --tmpBufferLength;
+    }
+    for (unsigned long i = 0; i < tmpBufferLength; ++i)
+    {
+      /* Any character will cause a paragraph to open if it is not yet opened. */
+      if (!isParagraphOpened)
+      {
+        librevenge::RVNGPropertyList paraProps;
+        _fillParagraphProperties(paraProps, *paraIt);
+
+        if (m_textBlockStyle.defaultTabStop > 0.0)
+          paraProps.insert("style:tab-stop-distance", m_textBlockStyle.defaultTabStop);
+
+        _fillTabSet(paraProps, *tabIt);
+
+        VSDBullet bullet;
+        _bulletFromParaFormat(bullet, *paraIt);
+
+        /* Bullet definition changed with regard to the last paragraph style. */
+        if (bullet != currentBullet)
+        {
+          /* If the previous paragraph style had a bullet, close the list level. */
+          if (!!currentBullet)
+            m_shapeOutputText->addCloseUnorderedListLevel();
+
+          currentBullet = bullet;
+          /* If the current paragraph style has a bullet, open a new list level. */
+          if (!!currentBullet)
+          {
+            librevenge::RVNGPropertyList bulletList;
+            _listLevelFromBullet(bulletList, currentBullet);
+            m_shapeOutputText->addOpenUnorderedListLevel(bulletList);
+          }
+        }
+
+        if (!currentBullet)
+          m_shapeOutputText->addOpenParagraph(paraProps);
+        else
+          m_shapeOutputText->addOpenListElement(paraProps);
+        isParagraphOpened = true;
+        isParagraphWithoutSpan = true;
+      }
+
+      /* Any character will cause a span to open if it is not yet opened.
+       * The additional conditions aim to avoid superfluous empty span but
+       * also a paragraph without span at all. */
+      if (!isSpanOpened && ((tmpBuffer[i] != (unsigned char)'\n' && tmpBuffer[i] != 0x0d && tmpBuffer[i] != 0x0e) || isParagraphWithoutSpan))
+      {
+        librevenge::RVNGPropertyList textProps;
+        _fillCharProperties(textProps, *charIt);
+
+        // TODO: In draw, text span background cannot be specified the same way as in writer span
+        if (m_textBlockStyle.isTextBkgndFilled)
+        {
+          textProps.insert("fo:background-color", getColourString(m_textBlockStyle.textBkgndColour));
+#if 0
+          if (m_textBlockStyle.textBkgndColour.a)
+            textProps.insert("fo:background-opacity", 1.0 - m_textBlockStyle.textBkgndColour.a/255.0, librevenge::RVNG_PERCENT);
+#endif
+        }
+        m_shapeOutputText->addOpenSpan(textProps);
+        isSpanOpened = true;
+        isParagraphWithoutSpan = false;
+      }
+
+      /* Current character is a paragraph break,
+       * which will cause the paragraph to close. */
+      if (tmpBuffer[i] == (unsigned char)'\n' || tmpBuffer[i] == 0x0d || tmpBuffer[i] == 0x0e)
+      {
+        if (!sOutputVector.empty())
+        {
+          appendCharacters(sOutputText, sOutputVector, charIt->font.m_format);
+          sOutputVector.clear();
+        }
+        if (!sOutputText.empty())
+        {
+          m_shapeOutputText->addInsertText(sOutputText);
+          sOutputText.clear();
+        }
+        if (isSpanOpened)
+        {
+          m_shapeOutputText->addCloseSpan();
+          isSpanOpened = false;
+        }
+
+        if (isParagraphOpened)
+        {
+          if (!currentBullet)
+            m_shapeOutputText->addCloseParagraph();
+          else
+            m_shapeOutputText->addCloseListElement();
+          isParagraphOpened = false;
+        }
+      }
+      /* Current character is a tabulator. We have to output
+       * the current text buffer and insert the tab. */
+      else if (tmpBuffer[i] == (unsigned char)'\t')
+      {
+        if (!sOutputVector.empty())
+        {
+          appendCharacters(sOutputText, sOutputVector, charIt->font.m_format);
+          sOutputVector.clear();
+        }
+        if (!sOutputText.empty())
+        {
+          m_shapeOutputText->addInsertText(sOutputText);
+          sOutputText.clear();
+        }
+        m_shapeOutputText->addInsertTab();
+      }
+      /* Current character is a field placeholder. We append
+       * to the current text buffer a text representation
+       * of the field. */
+      else if (tmpBuffer[i] == 0x1e)
+      {
+        if (!sOutputVector.empty())
+        {
+          appendCharacters(sOutputText, sOutputVector, charIt->font.m_format);
+          sOutputVector.clear();
+        }
+        _appendField(sOutputText);
+      }
+      /* We have a normal UTF8 character and we append it
+       * to the current text buffer. */
+      else
+        sOutputVector.push_back(tmpBuffer[i]);
+
+      /* Decrease the count of remaining characters in the same paragraph,
+       * if it is possible. */
+      if (paraNumRemaining)
+        paraNumRemaining--;
+      /* Fetch next paragraph style if it exists. If not, just use the
+       * last one. */
+      if (!paraNumRemaining)
+      {
+        ++paraIt;
+        if (paraIt != m_paraFormats.end())
+          paraNumRemaining = paraIt->charCount;
+        else
+          --paraIt;
+      }
+
+      /* Decrease the count of remaining characters in the same span,
+       * if it is possible. */
+      if (charNumRemaining)
+        charNumRemaining--;
+      /* Fetch next character style if it exists and close span, since
+       * the next span will have to use the new character style.
+       * If there is no more character style to fetch, just finish using
+       * the last one. */
+      if (!charNumRemaining)
+      {
+        ++charIt;
+        if (charIt != m_charFormats.end())
+        {
+          charNumRemaining = charIt->charCount;
+          if (isSpanOpened)
+          {
+            if (!sOutputVector.empty())
+            {
+              appendCharacters(sOutputText, sOutputVector, charIt->font.m_format);
+              sOutputVector.clear();
+            }
+            if (!sOutputText.empty())
+            {
+              m_shapeOutputText->addInsertText(sOutputText);
+              sOutputText.clear();
+            }
+            m_shapeOutputText->addCloseSpan();
+            isSpanOpened = false;
+          }
+        }
+        else
+          --charIt;
+      }
+
+      /* Decrease the count of remaining characters using the same
+       * tab-set definition, if it is possible. */
+      if (tabNumRemaining)
+        tabNumRemaining--;
+      /* Fetch next tab-set definition if it exists. If not, just use the
+       * last one. */
+      if (!tabNumRemaining)
+      {
+        ++tabIt;
+        if (tabIt != m_tabSets.end())
+          tabNumRemaining = tabIt->m_numChars;
+        else
+          --tabIt;
+      }
+    }
+  }
+
+  // Clean up the elements that remained opened
+  if (isParagraphOpened)
+  {
+    if (isSpanOpened)
+    {
+      if (!sOutputVector.empty())
+      {
+        appendCharacters(sOutputText, sOutputVector, charIt->font.m_format);
+        sOutputVector.clear();
+      }
+      if (!sOutputText.empty())
+      {
+        m_shapeOutputText->addInsertText(sOutputText);
+        sOutputText.clear();
+      }
+      m_shapeOutputText->addCloseSpan();
+      isSpanOpened = false;
+    }
+
+    if (!currentBullet)
+      m_shapeOutputText->addCloseParagraph();
+    else
+      m_shapeOutputText->addCloseListElement();
+    isParagraphOpened = false;
+  }
+
+  /* Last paragraph style had a bullet and we have to close
+   * the corresponding list level. */
+  if (!!currentBullet)
+    m_shapeOutputText->addCloseUnorderedListLevel();
+
   m_shapeOutputText->addEndTextObject();
-  m_textStream.clear();
+  m_currentText.clear();
+}
+
+void libvisio::VSDContentCollector::_fillCharProperties(librevenge::RVNGPropertyList &propList, const VSDCharStyle &style)
+{
+  librevenge::RVNGString fontName;
+  if (style.font.m_data.size())
+    _convertDataToString(fontName, style.font.m_data, style.font.m_format);
+  else
+    fontName = "Arial";
+
+  propList.insert("style:font-name", fontName);
+
+  if (style.bold) propList.insert("fo:font-weight", "bold");
+  if (style.italic) propList.insert("fo:font-style", "italic");
+  if (style.underline) propList.insert("style:text-underline-type", "single");
+  if (style.doubleunderline) propList.insert("style:text-underline-type", "double");
+  if (style.strikeout) propList.insert("style:text-line-through-type", "single");
+  if (style.doublestrikeout) propList.insert("style:text-line-through-type", "double");
+  if (style.allcaps) propList.insert("fo:text-transform", "uppercase");
+  if (style.initcaps) propList.insert("fo:text-transform", "capitalize");
+  if (style.smallcaps) propList.insert("fo:font-variant", "small-caps");
+  if (style.superscript) propList.insert("style:text-position", "super");
+  if (style.subscript) propList.insert("style:text-position", "sub");
+  if (style.scaleWidth != 1.0) propList.insert("style:text-scale", style.scaleWidth, librevenge::RVNG_PERCENT);
+  propList.insert("fo:font-size", style.size*72.0, librevenge::RVNG_POINT);
+  Colour colour = style.colour;
+  const Colour *pColour = m_currentLayerList.getColour(m_currentLayerMem);
+  if (pColour)
+    colour = *pColour;
+  propList.insert("fo:color", getColourString(colour));
+  double opacity = 1.0;
+  if (style.colour.a)
+    opacity -= (double)(style.colour.a)/255.0;
+  propList.insert("svg:stroke-opacity", opacity, librevenge::RVNG_PERCENT);
+  propList.insert("svg:fill-opacity", opacity, librevenge::RVNG_PERCENT);
+}
+
+void libvisio::VSDContentCollector::_fillParagraphProperties(librevenge::RVNGPropertyList &propList, const VSDParaStyle &style)
+{
+  propList.insert("fo:text-indent", style.indFirst);
+  propList.insert("fo:margin-left", style.indLeft);
+  propList.insert("fo:margin-right", style.indRight);
+  propList.insert("fo:margin-top", style.spBefore);
+  propList.insert("fo:margin-bottom", style.spAfter);
+
+  switch (style.align)
+  {
+  case 0: // left
+    if (!style.flags)
+      propList.insert("fo:text-align", "left");
+    else
+      propList.insert("fo:text-align", "end");
+    break;
+  case 2: // right
+    if (!style.flags)
+      propList.insert("fo:text-align", "end");
+    else
+      propList.insert("fo:text-align", "left");
+    break;
+  case 3: // justify
+    propList.insert("fo:text-align", "justify");
+    break;
+  case 4: // full
+    propList.insert("fo:text-align", "full");
+    break;
+  default: // center
+    propList.insert("fo:text-align", "center");
+    break;
+  }
+  if (style.spLine > 0)
+    propList.insert("fo:line-height", style.spLine);
+  else
+    propList.insert("fo:line-height", -style.spLine, librevenge::RVNG_PERCENT);
+
+}
+
+void libvisio::VSDContentCollector::_fillTabSet(librevenge::RVNGPropertyList &propList, const VSDTabSet &tabSet)
+{
+  librevenge::RVNGPropertyListVector tmpTabSet;
+  for (const auto &tabStop : tabSet.m_tabStops)
+  {
+    librevenge::RVNGPropertyList tmpTabStop;
+    tmpTabStop.insert("style:position", tabStop.second.m_position);
+    switch (tabStop.second.m_alignment)
+    {
+    case 0:
+      tmpTabStop.insert("style:type", "left");
+      break;
+    case 1:
+      tmpTabStop.insert("style:type", "center");
+      break;
+    case 2:
+      tmpTabStop.insert("style:type", "right");
+      break;
+    default:
+      tmpTabStop.insert("style:type", "char");
+      tmpTabStop.insert("style:char", ".");
+      break;
+    }
+    tmpTabSet.append(tmpTabStop);
+  }
+  if (!tmpTabSet.empty())
+    propList.insert("style:tab-stops", tmpTabSet);
 }
 
 void libvisio::VSDContentCollector::_flushCurrentForeignData()
@@ -665,6 +1257,8 @@ void libvisio::VSDContentCollector::_flushCurrentForeignData()
   if (angle != 0.0)
     m_currentForeignProps.insert("librevenge:rotate", angle * 180 / M_PI, librevenge::RVNG_GENERIC);
 
+  _appendVisibleAndPrintable(m_currentForeignProps);
+
   if (m_currentForeignData.size() && m_currentForeignProps["librevenge:mime-type"] && m_foreignWidth != 0.0 && m_foreignHeight != 0.0)
   {
     m_shapeOutputDrawing->addStyle(styleProps);
@@ -681,9 +1275,9 @@ void libvisio::VSDContentCollector::_flushCurrentPage()
       m_groupMemberships != m_groupMembershipsSequence.end())
   {
     std::stack<std::pair<unsigned, VSDOutputElementList> > groupTextStack;
-    for (std::list<unsigned>::iterator iterList = m_pageShapeOrder->begin(); iterList != m_pageShapeOrder->end(); ++iterList)
+    for (unsigned int &iterList : *m_pageShapeOrder)
     {
-      std::map<unsigned, unsigned>::iterator iterGroup = m_groupMemberships->find(*iterList);
+      std::map<unsigned, unsigned>::iterator iterGroup = m_groupMemberships->find(iterList);
       if (iterGroup == m_groupMemberships->end())
       {
         while (!groupTextStack.empty())
@@ -702,14 +1296,14 @@ void libvisio::VSDContentCollector::_flushCurrentPage()
       }
 
       std::map<unsigned, VSDOutputElementList>::iterator iter;
-      iter = m_pageOutputDrawing.find(*iterList);
+      iter = m_pageOutputDrawing.find(iterList);
       if (iter != m_pageOutputDrawing.end())
         m_currentPage.append(iter->second);
-      iter = m_pageOutputText.find(*iterList);
+      iter = m_pageOutputText.find(iterList);
       if (iter != m_pageOutputText.end())
-        groupTextStack.push(std::make_pair(*iterList, iter->second));
+        groupTextStack.push(std::make_pair(iterList, iter->second));
       else
-        groupTextStack.push(std::make_pair(*iterList, VSDOutputElementList()));
+        groupTextStack.push(std::make_pair(iterList, VSDOutputElementList()));
     }
     while (!groupTextStack.empty())
     {
@@ -719,6 +1313,12 @@ void libvisio::VSDContentCollector::_flushCurrentPage()
   }
   m_pageOutputDrawing.clear();
   m_pageOutputText.clear();
+}
+
+void libvisio::VSDContentCollector::collectDocumentTheme(const VSDXTheme *theme)
+{
+  if (theme)
+    m_documentTheme = theme;
 }
 
 #define LIBVISIO_EPSILON 1E-10
@@ -765,8 +1365,8 @@ void libvisio::VSDContentCollector::collectEllipticalArcTo(unsigned /* id */, un
 
   VSD_DEBUG_MSG(("Centre: (%f,%f), angle %f\n", x0, y0, angle));
 
-  double rx = sqrt(pow(x1-x0, 2) + pow(y1-y0, 2));
-  double ry = rx / ecc;
+  double rx = hypot(x1 - x0, y1 - y0);
+  double ry = ecc != 0 ? rx / ecc : rx;
   librevenge::RVNGPropertyList arc;
   int largeArc = 0;
   int sweep = 1;
@@ -799,14 +1399,15 @@ void libvisio::VSDContentCollector::collectEllipse(unsigned /* id */, unsigned l
 {
   _handleLevelChange(level);
   librevenge::RVNGPropertyList ellipse;
-  double angle = fmod(2.0*M_PI + (cy > yleft ? 1.0 : -1.0)*acos((cx-xleft) / sqrt((xleft - cx)*(xleft - cx) + (yleft - cy)*(yleft - cy))), 2.0*M_PI);
+  double h = hypot(xleft - cx, yleft - cy);
+  double angle = h != 0 ? fmod(2.0*M_PI + (cy > yleft ? 1.0 : -1.0)*acos((cx-xleft) / h), 2.0*M_PI) : 0;
   transformPoint(cx, cy);
   transformPoint(xleft, yleft);
   transformPoint(xtop, ytop);
   transformAngle(angle);
 
-  double rx = sqrt((xleft - cx)*(xleft - cx) + (yleft - cy)*(yleft - cy));
-  double ry = sqrt((xtop - cx)*(xtop - cx) + (ytop - cy)*(ytop - cy));
+  double rx = hypot(xleft - cx, yleft - cy);
+  double ry = hypot(xtop - cx, ytop - cy);
 
   int largeArc = 0;
   double centreSide = (xleft-xtop)*(cy-ytop) - (yleft-ytop)*(cx-xtop);
@@ -858,14 +1459,14 @@ void libvisio::VSDContentCollector::collectInfiniteLine(unsigned /* id */, unsig
   double xline = 0.0;
   double yline = 0.0;
 
-  if (x1 == x2)
+  if (VSD_APPROX_EQUAL(x1, x2))
   {
     xmove = x1;
     ymove = 0;
     xline = x1;
     yline = m_pageHeight;
   }
-  else if (y1 == y2)
+  else if (VSD_APPROX_EQUAL(y1, y2))
   {
     xmove = 0;
     ymove = y1;
@@ -908,12 +1509,12 @@ void libvisio::VSDContentCollector::collectInfiniteLine(unsigned /* id */, unsig
     {
       xmove = points.begin()->first;
       ymove = points.begin()->second;
-      for (std::map<double, double>::iterator iter = points.begin(); iter != points.end(); ++iter)
+      for (auto &point : points)
       {
-        if (iter->first != xmove || iter->second != ymove)
+        if (point.first != xmove || point.second != ymove)
         {
-          xline = iter->first;
-          yline = iter->second;
+          xline = point.first;
+          yline = point.second;
         }
       }
     }
@@ -1015,19 +1616,22 @@ void libvisio::VSDContentCollector::collectRelQuadBezTo(unsigned /* id */, unsig
 }
 
 void libvisio::VSDContentCollector::collectLine(unsigned level, const boost::optional<double> &strokeWidth, const boost::optional<Colour> &c, const boost::optional<unsigned char> &linePattern,
-                                                const boost::optional<unsigned char> &startMarker, const boost::optional<unsigned char> &endMarker, const boost::optional<unsigned char> &lineCap)
+                                                const boost::optional<unsigned char> &startMarker, const boost::optional<unsigned char> &endMarker, const boost::optional<unsigned char> &lineCap,
+                                                const boost::optional<double> &rounding, const boost::optional<long> &qsLineColour, const boost::optional<long> &qsLineMatrix)
 {
   _handleLevelChange(level);
-  m_lineStyle.override(VSDOptionalLineStyle(strokeWidth, c, linePattern, startMarker, endMarker, lineCap));
+  m_lineStyle.override(VSDOptionalLineStyle(strokeWidth, c, linePattern, startMarker, endMarker, lineCap, rounding, qsLineColour, qsLineMatrix), m_documentTheme);
 }
 
 void libvisio::VSDContentCollector::collectFillAndShadow(unsigned level, const boost::optional<Colour> &colourFG, const boost::optional<Colour> &colourBG,
                                                          const boost::optional<unsigned char> &fillPattern, const boost::optional<double> &fillFGTransparency, const boost::optional<double> &fillBGTransparency,
                                                          const boost::optional<unsigned char> &shadowPattern, const boost::optional<Colour> &shfgc, const boost::optional<double> &shadowOffsetX,
-                                                         const boost::optional<double> &shadowOffsetY)
+                                                         const boost::optional<double> &shadowOffsetY, const boost::optional<long> &qsFillColour, const boost::optional<long> &qsShadowColour,
+                                                         const boost::optional<long> &qsFillMatrix)
 {
   _handleLevelChange(level);
-  m_fillStyle.override(VSDOptionalFillStyle(colourFG, colourBG, fillPattern, fillFGTransparency, fillBGTransparency, shfgc, shadowPattern, shadowOffsetX, shadowOffsetY));
+  m_fillStyle.override(VSDOptionalFillStyle(colourFG, colourBG, fillPattern, fillFGTransparency, fillBGTransparency, shfgc,
+                                            shadowPattern, shadowOffsetX, shadowOffsetY, qsFillColour, qsShadowColour, qsFillMatrix), m_documentTheme);
 }
 
 void libvisio::VSDContentCollector::collectFillAndShadow(unsigned level, const boost::optional<Colour> &colourFG, const boost::optional<Colour> &colourBG,
@@ -1035,14 +1639,7 @@ void libvisio::VSDContentCollector::collectFillAndShadow(unsigned level, const b
                                                          const boost::optional<double> &fillBGTransparency,
                                                          const boost::optional<unsigned char> &shadowPattern, const boost::optional<Colour> &shfgc)
 {
-  collectFillAndShadow(level, colourFG, colourBG, fillPattern, fillFGTransparency, fillBGTransparency, shadowPattern, shfgc, m_shadowOffsetX, m_shadowOffsetY);
-}
-
-void libvisio::VSDContentCollector::collectThemeReference(unsigned level, const boost::optional<long> &lineColour, const boost::optional<long> &fillColour,
-                                                          const boost::optional<long> &shadowColour, const boost::optional<long> &fontColour)
-{
-  _handleLevelChange(level);
-  m_themeReference.override(VSDOptionalThemeReference(lineColour, fillColour, shadowColour, fontColour));
+  collectFillAndShadow(level, colourFG, colourBG, fillPattern, fillFGTransparency, fillBGTransparency, shadowPattern, shfgc, m_shadowOffsetX, m_shadowOffsetY, -1, -1, -1);
 }
 
 void libvisio::VSDContentCollector::collectForeignData(unsigned level, const librevenge::RVNGBinaryData &binaryData)
@@ -1086,10 +1683,11 @@ void libvisio::VSDContentCollector::_handleForeignData(const librevenge::RVNGBin
       m_currentForeignData.append((unsigned char)0x00);
       m_currentForeignData.append((unsigned char)0x00);
 
-      m_currentForeignData.append((unsigned char)0x36);
-      m_currentForeignData.append((unsigned char)0x00);
-      m_currentForeignData.append((unsigned char)0x00);
-      m_currentForeignData.append((unsigned char)0x00);
+      const unsigned dataOff = computeBMPDataOffset(binaryData.getDataStream(), binaryData.size());
+      m_currentForeignData.append((unsigned char)(dataOff & 0xff));
+      m_currentForeignData.append((unsigned char)((dataOff >> 8) & 0xff));
+      m_currentForeignData.append((unsigned char)((dataOff >> 16) & 0xff));
+      m_currentForeignData.append((unsigned char)((dataOff >> 24) & 0xff));
     }
     m_currentForeignData.append(binaryData);
 
@@ -1259,7 +1857,7 @@ void libvisio::VSDContentCollector::collectArcTo(unsigned /* id */, unsigned lev
   else
   {
     librevenge::RVNGPropertyList arc;
-    double chord = sqrt(pow((y2 - m_y),2) + pow((x2 - m_x),2));
+    double chord = hypot(y2 - m_y, x2 - m_x);
     double radius = (4 * bow * bow + chord * chord) / (8 * fabs(bow));
     int largeArc = fabs(bow) > radius ? 1 : 0;
     bool sweep = (bow < 0);
@@ -1355,7 +1953,7 @@ void libvisio::VSDContentCollector::_outputLinearBezierSegment(const std::vector
 void libvisio::VSDContentCollector::_generateBezierSegmentsFromNURBS(unsigned degree,
                                                                      const std::vector<std::pair<double, double> > &controlPoints, const std::vector<double> &knotVector)
 {
-  if (controlPoints.empty() || knotVector.empty() || !degree)
+  if (controlPoints.size() <= degree || knotVector.empty() || degree == 0)
     return;
 
   /* Decomposition of a uniform spline of a given degree into Bezier segments
@@ -1365,23 +1963,28 @@ void libvisio::VSDContentCollector::_generateBezierSegmentsFromNURBS(unsigned de
 
   unsigned a = degree;
   unsigned b = degree + 1;
+  unsigned m = (controlPoints.size() - 1) + degree + 1;
+  if (m > knotVector.size() - 1)
+    m = knotVector.size() - 1;
   std::vector< std::pair<double, double> > points(degree + 1), nextPoints(degree + 1);
   unsigned i = 0;
   for (; i <= degree; i++)
     points[i] = controlPoints[i];
-  while (b < knotVector.size() - 1)
+  while (b < m)
   {
     i = b;
-    while (b < knotVector.size() - 1 && knotVector[b+1] == knotVector[b])
+    while (b < m && VSD_APPROX_EQUAL(knotVector[b+1], knotVector[i]))
       b++;
     unsigned mult = b - i + 1;
+    if (mult > degree) // it doesn't make sense to have knot multiplicity greater than the curve degree
+      mult = degree;
     if (mult < degree)
     {
-      double numer = (double)(knotVector[b] - knotVector[a]);
+      double numer = knotVector[b] - knotVector[a];
       unsigned j = degree;
       std::vector<double> alphas(degree - 1, 0.0);
       for (; j >mult; j--)
-        alphas[j-mult-1] = numer/double(knotVector[a+j]-knotVector[a]);
+        alphas[j-mult-1] = numer/(knotVector[a+j]-knotVector[a]);
       unsigned r = degree - mult;
       for (j=1; j<=r; j++)
       {
@@ -1413,16 +2016,17 @@ void libvisio::VSDContentCollector::_generateBezierSegmentsFromNURBS(unsigned de
     case 3:
       _outputCubicBezierSegment(points);
       break;
-    default:
-      break;
     }
 
     std::swap(points, nextPoints);
 
-    if (b < knotVector.size() - 1)
+    if (b < m)
     {
       for (i=degree-mult; i <= degree; i++)
       {
+        // FIXME: I've absolutely no idea how this can happen, but it can...
+        if (b-degree+i >= controlPoints.size())
+          break;
         points[i].first = controlPoints[b-degree+i].first;
         points[i].second = controlPoints[b-degree+i].second;
       }
@@ -1461,11 +2065,15 @@ void libvisio::VSDContentCollector::_generatePolylineFromNURBS(unsigned degree, 
   if (m_noShow)
     return;
 
-  librevenge::RVNGPropertyList node;
+  if (!m_noFill)
+    m_currentFillGeometry.reserve(VSD_NUM_POLYLINES_PER_KNOT * knotVector.size());
+  if (!m_noLine)
+    m_currentLineGeometry.reserve(VSD_NUM_POLYLINES_PER_KNOT * knotVector.size());
 
   for (unsigned i = 0; i < VSD_NUM_POLYLINES_PER_KNOT * knotVector.size(); i++)
   {
-    node.clear();
+    librevenge::RVNGPropertyList node;
+
     node.insert("librevenge:path-action", "L");
     double x = 0;
     double y = 0;
@@ -1484,9 +2092,9 @@ void libvisio::VSDContentCollector::_generatePolylineFromNURBS(unsigned degree, 
     node.insert("svg:x", m_scale*x);
     node.insert("svg:y", m_scale*y);
 
-    if (!m_noFill && !m_noShow)
+    if (!m_noFill)
       m_currentFillGeometry.push_back(node);
-    if (!m_noLine && !m_noShow)
+    if (!m_noLine)
       m_currentLineGeometry.push_back(node);
   }
 }
@@ -1496,15 +2104,17 @@ bool libvisio::VSDContentCollector::_isUniform(const std::vector<double> &weight
   if (weights.empty())
     return true;
   double previousValue = weights[0];
-  for (std::vector<double>::size_type i = 0; i < weights.size(); ++i)
+  for (double weight : weights)
   {
-    if (fabs(weights[i] - previousValue) < LIBVISIO_EPSILON)
-      previousValue = weights[i];
+    if (fabs(weight - previousValue) < LIBVISIO_EPSILON)
+      previousValue = weight;
     else
       return false;
   }
   return true;
 }
+
+#define MAX_ALLOWED_NURBS_DEGREE 8
 
 void libvisio::VSDContentCollector::collectNURBSTo(unsigned /* id */, unsigned level, double x2, double y2,
                                                    unsigned char xType, unsigned char yType, unsigned degree, const std::vector<std::pair<double, double> > &ctrlPnts,
@@ -1516,15 +2126,18 @@ void libvisio::VSDContentCollector::collectNURBSTo(unsigned /* id */, unsigned l
     // Here, maybe we should just draw line to (x2,y2)
     return;
 
+  if (degree > MAX_ALLOWED_NURBS_DEGREE)
+    degree = MAX_ALLOWED_NURBS_DEGREE;
+
   std::vector<std::pair<double, double> > controlPoints(ctrlPnts);
 
   // Convert control points to static co-ordinates
-  for (std::vector<std::pair<double, double> >::iterator iter = controlPoints.begin(); iter != controlPoints.end(); ++iter)
+  for (auto &controlPoint : controlPoints)
   {
     if (xType == 0) // Percentage
-      iter->first *= m_xform.width;
+      controlPoint.first *= m_xform.width;
     if (yType == 0) // Percentage
-      iter->second *= m_xform.height;
+      controlPoint.second *= m_xform.height;
   }
 
   controlPoints.push_back(std::pair<double,double>(x2, y2));
@@ -1532,20 +2145,27 @@ void libvisio::VSDContentCollector::collectNURBSTo(unsigned /* id */, unsigned l
 
   std::vector<double> knotVector(kntVec);
 
-  // Fill in end knots
-  while (knotVector.size() < (controlPoints.size() + degree + 1))
+  // Ensure knots are sorted in non-decreasing order
+  for (size_t i = 1; i < knotVector.size(); ++i)
   {
-    double tmpBack = knotVector.back();
-    knotVector.push_back(tmpBack);
+    if (knotVector[i] < knotVector[i - 1])
+      knotVector[i] = knotVector[i - 1];
   }
+
+  // Fill in end knots
+  knotVector.reserve(controlPoints.size() + degree + 1);
+  while (knotVector.size() < (controlPoints.size() + degree + 1))
+    knotVector.push_back(knotVector.back());
 
   // Let knotVector run from 0 to 1
   double firstKnot = knotVector[0];
   double lastKnot = knotVector.back()-knotVector[0];
-  for (std::vector<double>::iterator knot = knotVector.begin(); knot != knotVector.end(); ++knot)
+  if (VSD_ALMOST_ZERO(lastKnot))
+    lastKnot = VSD_EPSILON;
+  for (double &knot : knotVector)
   {
-    *knot -= firstKnot;
-    *knot /= lastKnot;
+    knot -= firstKnot;
+    knot /= lastKnot;
   }
 
   if (degree <= 3 && _isUniform(weights))
@@ -1597,7 +2217,7 @@ void libvisio::VSDContentCollector::collectNURBSTo(unsigned id, unsigned level, 
 
     // Get stencil geometry so as to find stencil NURBS data ID
     std::map<unsigned, VSDGeometryList>::const_iterator cstiter = m_stencilShape->m_geometries.find(m_currentGeometryCount-1);
-    VSDGeometryListElement *element = 0;
+    VSDGeometryListElement *element = nullptr;
     if (cstiter == m_stencilShape->m_geometries.end())
     {
       _handleLevelChange(level);
@@ -1619,7 +2239,7 @@ void libvisio::VSDContentCollector::collectNURBSTo(unsigned id, unsigned level, 
     _handleLevelChange(level);
 }
 
-void libvisio::VSDContentCollector::collectPolylineTo(unsigned /* id */ , unsigned level, double x, double y, unsigned char xType, unsigned char yType, const std::vector<std::pair<double, double> > &points)
+void libvisio::VSDContentCollector::collectPolylineTo(unsigned /* id */, unsigned level, double x, double y, unsigned char xType, unsigned char yType, const std::vector<std::pair<double, double> > &points)
 {
   _handleLevelChange(level);
 
@@ -1677,7 +2297,7 @@ void libvisio::VSDContentCollector::collectPolylineTo(unsigned id, unsigned leve
 
     // Get stencil geometry so as to find stencil polyline data ID
     std::map<unsigned, VSDGeometryList>::const_iterator cstiter = m_stencilShape->m_geometries.find(m_currentGeometryCount-1);
-    VSDGeometryListElement *element = 0;
+    VSDGeometryListElement *element = nullptr;
     if (cstiter == m_stencilShape->m_geometries.end())
     {
       _handleLevelChange(level);
@@ -1734,9 +2354,7 @@ void libvisio::VSDContentCollector::collectXFormData(unsigned level, const XForm
 void libvisio::VSDContentCollector::collectTxtXForm(unsigned level, const XForm &txtxform)
 {
   _handleLevelChange(level);
-  if (m_txtxform)
-    delete(m_txtxform);
-  m_txtxform = new XForm(txtxform);
+  m_txtxform.reset(new XForm(txtxform));
   m_txtxform->x = m_txtxform->pinX - m_txtxform->pinLocX;
   m_txtxform->y = m_txtxform->pinY - m_txtxform->pinLocY;
 }
@@ -1771,6 +2389,9 @@ void libvisio::VSDContentCollector::transformPoint(double &x, double &y, XForm *
 
   unsigned shapeId = m_currentShapeId;
 
+  std::set<unsigned> visitedShapes; // avoid mutually nested shapes in broken files
+  visitedShapes.insert(shapeId);
+
   if (txtxform)
     applyXForm(x, y, *txtxform);
 
@@ -1791,7 +2412,7 @@ void libvisio::VSDContentCollector::transformPoint(double &x, double &y, XForm *
       if (iter != m_groupMemberships->end() && shapeId != iter->second)
       {
         shapeId = iter->second;
-        shapeFound = true;
+        shapeFound = visitedShapes.insert(shapeId).second;
       }
     }
     if (!shapeFound)
@@ -1815,7 +2436,8 @@ void libvisio::VSDContentCollector::transformAngle(double &angle, XForm *txtxfor
   double y1 =m_xform.pinLocY + sin(angle);
   transformPoint(x0, y0, txtxform);
   transformPoint(x1, y1, txtxform);
-  angle = fmod(2.0*M_PI + (y1 > y0 ? 1.0 : -1.0)*acos((x1-x0) / sqrt((x1-x0)*(x1-x0) + (y1-y0)*(y1-y0))), 2.0*M_PI);
+  const double h = hypot(x1-x0, y1-y0);
+  angle = h != 0 ? fmod(2.0*M_PI + (y1 > y0 ? 1.0 : -1.0)*acos((x1-x0) / h), 2.0*M_PI) : 0;
 }
 
 void libvisio::VSDContentCollector::transformFlips(bool &flipX, bool &flipY)
@@ -1827,6 +2449,9 @@ void libvisio::VSDContentCollector::transformFlips(bool &flipX, bool &flipY)
     return;
 
   unsigned shapeId = m_currentShapeId;
+
+  std::set<unsigned> visitedShapes; // avoid mutually nested shapes in broken files
+  visitedShapes.insert(shapeId);
 
   while (true && m_groupXForms)
   {
@@ -1848,7 +2473,7 @@ void libvisio::VSDContentCollector::transformFlips(bool &flipX, bool &flipY)
       if (iter != m_groupMemberships->end() && shapeId != iter->second)
       {
         shapeId = iter->second;
-        shapeFound = true;
+        shapeFound = visitedShapes.insert(shapeId).second;
       }
     }
     if (!shapeFound)
@@ -1921,7 +2546,7 @@ void libvisio::VSDContentCollector::collectShape(unsigned id, unsigned level, un
   m_misc = VSDMisc();
 
   // Save line colour and pattern, fill type and pattern
-  m_textStream.clear();
+  m_currentText.clear();
   m_charFormats.clear();
   m_paraFormats.clear();
 
@@ -1960,15 +2585,15 @@ void libvisio::VSDContentCollector::collectShape(unsigned id, unsigned level, un
       _handleForeignData(m_stencilShape->m_foreign->data);
     }
 
-    m_textStream = m_stencilShape->m_text;
-    m_textFormat = m_stencilShape->m_textFormat;
-
-    for (std::map< unsigned, VSDName>::const_iterator iterData = m_stencilShape->m_names.begin(); iterData != m_stencilShape->m_names.end(); ++iterData)
+    for (const auto &name : m_stencilShape->m_names)
     {
       librevenge::RVNGString nameString;
-      _convertDataToString(nameString, iterData->second.m_data, iterData->second.m_format);
-      m_stencilNames[iterData->first] = nameString;
+      _convertDataToString(nameString, name.second.m_data, name.second.m_format);
+      m_stencilNames[name.first] = nameString;
     }
+
+    if (m_stencilShape->m_txtxform)
+      m_txtxform.reset(new XForm(*(m_stencilShape->m_txtxform)));
 
     m_stencilFields = m_stencilShape->m_fields;
     for (unsigned i = 0; i < m_stencilFields.size(); i++)
@@ -1981,38 +2606,38 @@ void libvisio::VSDContentCollector::collectShape(unsigned id, unsigned level, un
     }
 
     if (m_stencilShape->m_lineStyleId != MINUS_ONE)
-      m_lineStyle.override(m_styles.getOptionalLineStyle(m_stencilShape->m_lineStyleId));
+      m_lineStyle.override(m_styles.getOptionalLineStyle(m_stencilShape->m_lineStyleId), m_documentTheme);
 
-    m_lineStyle.override(m_stencilShape->m_lineStyle);
+    m_lineStyle.override(m_stencilShape->m_lineStyle, m_documentTheme);
 
     if (m_stencilShape->m_fillStyleId != MINUS_ONE)
-      m_fillStyle.override(m_styles.getOptionalFillStyle(m_stencilShape->m_fillStyleId));
+      m_fillStyle.override(m_styles.getOptionalFillStyle(m_stencilShape->m_fillStyleId), m_documentTheme);
 
-    m_fillStyle.override(m_stencilShape->m_fillStyle);
+    m_fillStyle.override(m_stencilShape->m_fillStyle, m_documentTheme);
 
     if (m_stencilShape->m_textStyleId != MINUS_ONE)
     {
-      m_defaultCharStyle.override(m_styles.getOptionalCharStyle(m_stencilShape->m_textStyleId));
-      m_defaultParaStyle.override(m_styles.getOptionalParaStyle(m_stencilShape->m_textStyleId));
-      m_textBlockStyle.override(m_styles.getOptionalTextBlockStyle(m_stencilShape->m_textStyleId));
+      m_defaultCharStyle.override(m_styles.getOptionalCharStyle(m_stencilShape->m_textStyleId), m_documentTheme);
+      m_defaultParaStyle.override(m_styles.getOptionalParaStyle(m_stencilShape->m_textStyleId), m_documentTheme);
+      m_textBlockStyle.override(m_styles.getOptionalTextBlockStyle(m_stencilShape->m_textStyleId), m_documentTheme);
     }
 
-    m_textBlockStyle.override(m_stencilShape->m_textBlockStyle);
-    m_defaultCharStyle.override(m_stencilShape->m_charStyle);
-    m_defaultParaStyle.override(m_stencilShape->m_paraStyle);
+    m_textBlockStyle.override(m_stencilShape->m_textBlockStyle, m_documentTheme);
+    m_defaultCharStyle.override(m_stencilShape->m_charStyle, m_documentTheme);
+    m_defaultParaStyle.override(m_stencilShape->m_paraStyle, m_documentTheme);
   }
 
   if (lineStyleId != MINUS_ONE)
-    m_lineStyle.override(m_styles.getOptionalLineStyle(lineStyleId));
+    m_lineStyle.override(m_styles.getOptionalLineStyle(lineStyleId), m_documentTheme);
 
   if (fillStyleId != MINUS_ONE)
-    m_fillStyle = m_styles.getFillStyle(fillStyleId);
+    m_fillStyle = m_styles.getFillStyle(fillStyleId, m_documentTheme);
 
   if (textStyleId != MINUS_ONE)
   {
-    m_defaultCharStyle.override(m_styles.getOptionalCharStyle(textStyleId));
-    m_defaultParaStyle.override(m_styles.getOptionalParaStyle(textStyleId));
-    m_textBlockStyle.override(m_styles.getOptionalTextBlockStyle(textStyleId));
+    m_defaultCharStyle.override(m_styles.getOptionalCharStyle(textStyleId), m_documentTheme);
+    m_defaultParaStyle.override(m_styles.getOptionalParaStyle(textStyleId), m_documentTheme);
+    m_textBlockStyle.override(m_styles.getOptionalTextBlockStyle(textStyleId), m_documentTheme);
   }
 
   m_currentGeometryCount = 0;
@@ -2067,50 +2692,72 @@ void libvisio::VSDContentCollector::collectText(unsigned level, const librevenge
 {
   _handleLevelChange(level);
 
-  m_textStream = textStream;
-  m_textFormat = format;
+  m_currentText.clear();
+  if (!textStream.empty())
+    m_currentText = libvisio::VSDName(textStream, format);
 }
 
-void libvisio::VSDContentCollector::collectParaIX(unsigned /* id */ , unsigned level, unsigned charCount, const boost::optional<double> &indFirst,
-                                                  const boost::optional<double> &indLeft, const boost::optional<double> &indRight, const boost::optional<double> &spLine, const boost::optional<double> &spBefore,
-                                                  const boost::optional<double> &spAfter, const boost::optional<unsigned char> &align, const boost::optional<unsigned> &flags)
+void libvisio::VSDContentCollector::collectParaIX(unsigned /* id */, unsigned level, unsigned charCount, const boost::optional<double> &indFirst,
+                                                  const boost::optional<double> &indLeft, const boost::optional<double> &indRight, const boost::optional<double> &spLine,
+                                                  const boost::optional<double> &spBefore, const boost::optional<double> &spAfter, const boost::optional<unsigned char> &align,
+                                                  const boost::optional<unsigned char> &bullet, const boost::optional<VSDName> &bulletStr,
+                                                  const boost::optional<VSDName> &bulletFont, const boost::optional<double> &bulletFontSize,
+                                                  const boost::optional<double> &textPosAfterBullet,  const boost::optional<unsigned> &flags)
 {
   _handleLevelChange(level);
   VSDParaStyle format(m_defaultParaStyle);
-  format.override(VSDOptionalParaStyle(charCount, indFirst, indLeft, indRight, spLine, spBefore, spAfter, align, flags));
+  format.override(VSDOptionalParaStyle(charCount, indFirst, indLeft, indRight, spLine, spBefore, spAfter, align,
+                                       bullet, bulletStr, bulletFont, bulletFontSize, textPosAfterBullet, flags), m_documentTheme);
   format.charCount = charCount;
   m_paraFormats.push_back(format);
 }
 
 void libvisio::VSDContentCollector::collectDefaultParaStyle(unsigned charCount, const boost::optional<double> &indFirst,
-                                                            const boost::optional<double> &indLeft, const boost::optional<double> &indRight, const boost::optional<double> &spLine, const boost::optional<double> &spBefore,
-                                                            const boost::optional<double> &spAfter, const boost::optional<unsigned char> &align, const boost::optional<unsigned> &flags)
+                                                            const boost::optional<double> &indLeft, const boost::optional<double> &indRight,
+                                                            const boost::optional<double> &spLine, const boost::optional<double> &spBefore,
+                                                            const boost::optional<double> &spAfter, const boost::optional<unsigned char> &align,
+                                                            const boost::optional<unsigned char> &bullet, const boost::optional<VSDName> &bulletStr,
+                                                            const boost::optional<VSDName> &bulletFont, const boost::optional<double> &bulletFontSize,
+                                                            const boost::optional<double> &textPosAfterBullet, const boost::optional<unsigned> &flags)
 {
-  m_defaultParaStyle.override(VSDOptionalParaStyle(charCount, indFirst, indLeft, indRight, spLine, spBefore, spAfter, align, flags));
+  m_defaultParaStyle.override(VSDOptionalParaStyle(charCount, indFirst, indLeft, indRight, spLine, spBefore, spAfter, align,
+                                                   bullet, bulletStr, bulletFont, bulletFontSize, textPosAfterBullet, flags), m_documentTheme);
 }
 
-void libvisio::VSDContentCollector::collectCharIX(unsigned /* id */ , unsigned level, unsigned charCount,
+void libvisio::VSDContentCollector::collectCharIX(unsigned /* id */, unsigned level, unsigned charCount,
                                                   const boost::optional<VSDName> &font, const boost::optional<Colour> &fontColour, const boost::optional<double> &fontSize, const boost::optional<bool> &bold,
                                                   const boost::optional<bool> &italic, const boost::optional<bool> &underline, const boost::optional<bool> &doubleunderline, const boost::optional<bool> &strikeout,
                                                   const boost::optional<bool> &doublestrikeout, const boost::optional<bool> &allcaps, const boost::optional<bool> &initcaps, const boost::optional<bool> &smallcaps,
-                                                  const boost::optional<bool> &superscript, const boost::optional<bool> &subscript)
+                                                  const boost::optional<bool> &superscript, const boost::optional<bool> &subscript, const boost::optional<double> &scaleWidth)
 {
   _handleLevelChange(level);
   VSDCharStyle format(m_defaultCharStyle);
   format.override(VSDOptionalCharStyle(charCount, font, fontColour, fontSize, bold, italic, underline, doubleunderline, strikeout, doublestrikeout,
-                                       allcaps, initcaps, smallcaps, superscript, subscript));
+                                       allcaps, initcaps, smallcaps, superscript, subscript, scaleWidth), m_documentTheme);
   format.charCount = charCount;
   m_charFormats.push_back(format);
 }
 
+void libvisio::VSDContentCollector::collectTabsDataList(unsigned level, const std::map<unsigned, VSDTabSet> &tabSets)
+{
+  _handleLevelChange(level);
+
+  m_tabSets.clear();
+  for (std::map<unsigned, VSDTabSet>::const_iterator iter = tabSets.begin(); iter != tabSets.end(); ++iter)
+    if (tabSets.begin() == iter || iter->second.m_numChars)
+      m_tabSets.push_back(iter->second);
+}
+
 void libvisio::VSDContentCollector::collectDefaultCharStyle(unsigned charCount,
-                                                            const boost::optional<VSDName> &font, const boost::optional<Colour> &fontColour, const boost::optional<double> &fontSize, const boost::optional<bool> &bold,
-                                                            const boost::optional<bool> &italic, const boost::optional<bool> &underline, const boost::optional<bool> &doubleunderline, const boost::optional<bool> &strikeout,
-                                                            const boost::optional<bool> &doublestrikeout, const boost::optional<bool> &allcaps, const boost::optional<bool> &initcaps, const boost::optional<bool> &smallcaps,
-                                                            const boost::optional<bool> &superscript, const boost::optional<bool> &subscript)
+                                                            const boost::optional<VSDName> &font, const boost::optional<Colour> &fontColour, const boost::optional<double> &fontSize,
+                                                            const boost::optional<bool> &bold, const boost::optional<bool> &italic, const boost::optional<bool> &underline,
+                                                            const boost::optional<bool> &doubleunderline, const boost::optional<bool> &strikeout,
+                                                            const boost::optional<bool> &doublestrikeout, const boost::optional<bool> &allcaps, const boost::optional<bool> &initcaps,
+                                                            const boost::optional<bool> &smallcaps, const boost::optional<bool> &superscript, const boost::optional<bool> &subscript,
+                                                            const boost::optional<double> &scaleWidth)
 {
   m_defaultCharStyle.override(VSDOptionalCharStyle(charCount, font, fontColour, fontSize, bold, italic, underline, doubleunderline, strikeout, doublestrikeout,
-                                                   allcaps, initcaps, smallcaps, superscript, subscript));
+                                                   allcaps, initcaps, smallcaps, superscript, subscript, scaleWidth), m_documentTheme);
 }
 
 void libvisio::VSDContentCollector::collectTextBlock(unsigned level, const boost::optional<double> &leftMargin, const boost::optional<double> &rightMargin,
@@ -2119,7 +2766,7 @@ void libvisio::VSDContentCollector::collectTextBlock(unsigned level, const boost
                                                      const boost::optional<unsigned char> &textDirection)
 {
   _handleLevelChange(level);
-  m_textBlockStyle.override(VSDOptionalTextBlockStyle(leftMargin, rightMargin, topMargin, bottomMargin, verticalAlign, isBgFilled, bgColour, defaultTabStop, textDirection));
+  m_textBlockStyle.override(VSDOptionalTextBlockStyle(leftMargin, rightMargin, topMargin, bottomMargin, verticalAlign, isBgFilled, bgColour, defaultTabStop, textDirection), m_documentTheme);
 }
 
 void libvisio::VSDContentCollector::collectNameList(unsigned /*id*/, unsigned level)
@@ -2151,6 +2798,7 @@ void libvisio::VSDContentCollector::collectPageSheet(unsigned /* id */, unsigned
 {
   _handleLevelChange(level);
   m_currentShapeLevel = level;
+  m_currentLayerList.clear();
 }
 
 void libvisio::VSDContentCollector::collectStyleSheet(unsigned id, unsigned level, unsigned lineStyleParent, unsigned fillStyleParent, unsigned textStyleParent)
@@ -2165,36 +2813,48 @@ void libvisio::VSDContentCollector::collectStyleSheet(unsigned id, unsigned leve
 }
 
 void libvisio::VSDContentCollector::collectLineStyle(unsigned /* level */, const boost::optional<double> &strokeWidth, const boost::optional<Colour> &c,
-                                                     const boost::optional<unsigned char> &linePattern, const boost::optional<unsigned char> &startMarker, const boost::optional<unsigned char> &endMarker,
-                                                     const boost::optional<unsigned char> &lineCap)
+                                                     const boost::optional<unsigned char> &linePattern, const boost::optional<unsigned char> &startMarker,
+                                                     const boost::optional<unsigned char> &endMarker, const boost::optional<unsigned char> &lineCap,
+                                                     const boost::optional<double> &rounding, const boost::optional<long> &qsLineColour,
+                                                     const boost::optional<long> &qsLineMatrix)
 {
-  VSDOptionalLineStyle lineStyle(strokeWidth, c, linePattern, startMarker, endMarker, lineCap);
+  VSDOptionalLineStyle lineStyle(strokeWidth, c, linePattern, startMarker, endMarker, lineCap, rounding, qsLineColour, qsLineMatrix);
   m_styles.addLineStyle(m_currentStyleSheet, lineStyle);
 }
 
 void libvisio::VSDContentCollector::collectFillStyle(unsigned /* level */, const boost::optional<Colour> &colourFG, const boost::optional<Colour> &colourBG,
-                                                     const boost::optional<unsigned char> &fillPattern, const boost::optional<double> &fillFGTransparency, const boost::optional<double> &fillBGTransparency,
-                                                     const boost::optional<unsigned char> &shadowPattern, const boost::optional<Colour> &shfgc, const boost::optional<double> &shadowOffsetX,
-                                                     const boost::optional<double> &shadowOffsetY)
+                                                     const boost::optional<unsigned char> &fillPattern, const boost::optional<double> &fillFGTransparency,
+                                                     const boost::optional<double> &fillBGTransparency, const boost::optional<unsigned char> &shadowPattern,
+                                                     const boost::optional<Colour> &shfgc, const boost::optional<double> &shadowOffsetX,
+                                                     const boost::optional<double> &shadowOffsetY, const boost::optional<long> &qsFillColour,
+                                                     const boost::optional<long> &qsShadowColour, const boost::optional<long> &qsFillMatrix)
 {
-  VSDOptionalFillStyle fillStyle(colourFG, colourBG, fillPattern, fillFGTransparency, fillBGTransparency, shfgc, shadowPattern, shadowOffsetX, shadowOffsetY);
+  VSDOptionalFillStyle fillStyle(colourFG, colourBG, fillPattern, fillFGTransparency, fillBGTransparency, shfgc, shadowPattern,
+                                 shadowOffsetX, shadowOffsetY, qsFillColour, qsShadowColour, qsFillMatrix);
   m_styles.addFillStyle(m_currentStyleSheet, fillStyle);
 
 }
 
 void libvisio::VSDContentCollector::collectFillStyle(unsigned level, const boost::optional<Colour> &colourFG, const boost::optional<Colour> &colourBG,
-                                                     const boost::optional<unsigned char> &fillPattern, const boost::optional<double> &fillFGTransparency, const boost::optional<double> &fillBGTransparency,
-                                                     const boost::optional<unsigned char> &shadowPattern, const boost::optional<Colour> &shfgc)
+                                                     const boost::optional<unsigned char> &fillPattern, const boost::optional<double> &fillFGTransparency,
+                                                     const boost::optional<double> &fillBGTransparency, const boost::optional<unsigned char> &shadowPattern,
+                                                     const boost::optional<Colour> &shfgc)
 {
-  collectFillStyle(level, colourFG, colourBG, fillPattern, fillFGTransparency, fillBGTransparency, shadowPattern, shfgc, m_shadowOffsetX, m_shadowOffsetY);
+  collectFillStyle(level, colourFG, colourBG, fillPattern, fillFGTransparency, fillBGTransparency, shadowPattern, shfgc,
+                   m_shadowOffsetX, m_shadowOffsetY, -1, -1, -1);
 }
 
 void libvisio::VSDContentCollector::collectParaIXStyle(unsigned /* id */, unsigned /* level */, unsigned charCount,
-                                                       const boost::optional<double> &indFirst, const boost::optional<double> &indLeft, const boost::optional<double> &indRight,
-                                                       const boost::optional<double> &spLine, const boost::optional<double> &spBefore, const boost::optional<double> &spAfter,
-                                                       const boost::optional<unsigned char> &align, const boost::optional<unsigned> &flags)
+                                                       const boost::optional<double> &indFirst, const boost::optional<double> &indLeft,
+                                                       const boost::optional<double> &indRight, const boost::optional<double> &spLine,
+                                                       const boost::optional<double> &spBefore, const boost::optional<double> &spAfter,
+                                                       const boost::optional<unsigned char> &align, const boost::optional<unsigned char> &bullet,
+                                                       const boost::optional<VSDName> &bulletStr, const boost::optional<VSDName> &bulletFont,
+                                                       const boost::optional<double> &bulletFontSize, const boost::optional<double> &textPosAfterBullet,
+                                                       const boost::optional<unsigned> &flags)
 {
-  VSDOptionalParaStyle paraStyle(charCount, indFirst, indLeft, indRight, spLine, spBefore, spAfter, align, flags);
+  VSDOptionalParaStyle paraStyle(charCount, indFirst, indLeft, indRight, spLine, spBefore, spAfter, align,
+                                 bullet, bulletStr, bulletFont, bulletFontSize, textPosAfterBullet, flags);
   m_styles.addParaStyle(m_currentStyleSheet, paraStyle);
 }
 
@@ -2204,10 +2864,10 @@ void libvisio::VSDContentCollector::collectCharIXStyle(unsigned /* id */, unsign
                                                        const boost::optional<bool> &bold, const boost::optional<bool> &italic, const boost::optional<bool> &underline,
                                                        const boost::optional<bool> &doubleunderline, const boost::optional<bool> &strikeout, const boost::optional<bool> &doublestrikeout,
                                                        const boost::optional<bool> &allcaps, const boost::optional<bool> &initcaps, const boost::optional<bool> &smallcaps,
-                                                       const boost::optional<bool> &superscript, const boost::optional<bool> &subscript)
+                                                       const boost::optional<bool> &superscript, const boost::optional<bool> &subscript, const boost::optional<double> &scaleWidth)
 {
   VSDOptionalCharStyle charStyle(charCount, font, fontColour, fontSize, bold, italic, underline, doubleunderline, strikeout, doublestrikeout,
-                                 allcaps, initcaps, smallcaps, superscript, subscript);
+                                 allcaps, initcaps, smallcaps, superscript, subscript, scaleWidth);
   m_styles.addCharStyle(m_currentStyleSheet, charStyle);
 }
 
@@ -2229,7 +2889,11 @@ void libvisio::VSDContentCollector::_lineProperties(const VSDLineStyle &style, l
   }
 
   styleProps.insert("svg:stroke-width", m_scale*style.width);
-  styleProps.insert("svg:stroke-color", getColourString(style.colour));
+  libvisio::Colour colour = style.colour;
+  const Colour *pColour = m_currentLayerList.getColour(m_currentLayerMem);
+  if (pColour)
+    colour = *pColour;
+  styleProps.insert("svg:stroke-color", getColourString(colour));
   if (style.colour.a)
     styleProps.insert("svg:stroke-opacity", (1 - style.colour.a/255.0), librevenge::RVNG_PERCENT);
   else
@@ -2256,14 +2920,14 @@ void libvisio::VSDContentCollector::_lineProperties(const VSDLineStyle &style, l
     styleProps.insert("draw:marker-start-viewbox", _linePropertiesMarkerViewbox(style.startMarker));
     styleProps.insert("draw:marker-start-path", _linePropertiesMarkerPath(style.startMarker));
     double w =  m_scale*_linePropertiesMarkerScale(style.startMarker)*(0.1/(style.width*style.width+1)+2.54*style.width);
-    styleProps.insert("draw:marker-start-width", std::max(w, 0.05));
+    styleProps.insert("draw:marker-start-width", (std::max)(w, 0.05));
   }
   if (style.endMarker > 0)
   {
     styleProps.insert("draw:marker-end-viewbox", _linePropertiesMarkerViewbox(style.endMarker));
     styleProps.insert("draw:marker-end-path", _linePropertiesMarkerPath(style.endMarker));
     double w =  m_scale*_linePropertiesMarkerScale(style.endMarker)*(0.1/(style.width*style.width+1)+2.54*style.width);
-    styleProps.insert("draw:marker-end-width", std::max(w, 0.05));
+    styleProps.insert("draw:marker-end-width", (std::max)(w, 0.05));
   }
 
   int dots1 = 0;
@@ -2454,6 +3118,145 @@ void libvisio::VSDContentCollector::_fillAndShadowProperties(const VSDFillStyle 
     else
       styleProps.remove("draw:opacity");
   }
+  else if (style.pattern >= 2 && style.pattern <= 24)
+  {
+    styleProps.insert("draw:fill", "hatch");
+    if (style.bgTransparency == 1)
+      styleProps.insert("draw:fill-hatch-solid", "false");
+    else
+    {
+      styleProps.insert("draw:fill-hatch-solid", "true");
+      styleProps.insert("draw:opacity", (1 - (std::max)(style.fgTransparency, style.bgTransparency)), librevenge::RVNG_PERCENT);
+      styleProps.insert("draw:fill-color", getColourString(style.bgColour));
+    }
+
+    styleProps.insert("draw:color", getColourString(style.fgColour));
+    if (style.pattern == 2)
+    {
+      styleProps.insert("draw:style", "single");
+      styleProps.insert("draw:rotation", 45);
+      styleProps.insert("draw:distance", 0.1, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 3)
+    {
+      styleProps.insert("draw:style", "double");
+      styleProps.insert("draw:distance", 0.1, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 4)
+    {
+      styleProps.insert("draw:style", "double");
+      styleProps.insert("draw:rotation", 45);
+      styleProps.insert("draw:distance", 0.1, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 5)
+    {
+      styleProps.insert("draw:style", "single");
+      styleProps.insert("draw:rotation", 315);
+      styleProps.insert("draw:distance", 0.1, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 6)
+    {
+      styleProps.insert("draw:style", "single");
+      styleProps.insert("draw:distance", 0.1, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 7)
+    {
+      styleProps.insert("draw:style", "single");
+      styleProps.insert("draw:rotation", 90);
+      styleProps.insert("draw:distance", 0.1, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 8)
+    {
+      styleProps.insert("draw:style", "triple");
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 9)
+    {
+      styleProps.insert("draw:style", "triple");
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 10)
+    {
+      styleProps.insert("draw:style", "triple");
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 11)
+    {
+      styleProps.insert("draw:style", "triple");
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 12)
+    {
+      styleProps.insert("draw:style", "triple");
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 13)
+    {
+      styleProps.insert("draw:style", "single");
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 14)
+    {
+      styleProps.insert("draw:style", "single");
+      styleProps.insert("draw:rotation", 90);
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 15)
+    {
+      styleProps.insert("draw:style", "single");
+      styleProps.insert("draw:rotation", 315);
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 16)
+    {
+      styleProps.insert("draw:style", "single");
+      styleProps.insert("draw:rotation", 45);
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 17)
+    {
+      styleProps.insert("draw:style", "triple");
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 18)
+    {
+      styleProps.insert("draw:style", "triple");
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 19)
+    {
+      styleProps.insert("draw:style", "single");
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 20)
+    {
+      styleProps.insert("draw:style", "single");
+      styleProps.insert("draw:rotation", 90);
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 21)
+    {
+      styleProps.insert("draw:style", "single");
+      styleProps.insert("draw:rotation", 315);
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 22)
+    {
+      styleProps.insert("draw:style", "single");
+      styleProps.insert("draw:rotation", 45);
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 23)
+    {
+      styleProps.insert("draw:style", "double");
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+    else if (style.pattern == 24)
+    {
+      styleProps.insert("draw:style", "triple");
+      styleProps.insert("draw:distance", 0.05, librevenge::RVNG_INCH);
+    }
+  }
   else if (style.pattern == 26 || style.pattern == 29)
   {
     styleProps.insert("draw:fill", "gradient");
@@ -2583,10 +3386,14 @@ void libvisio::VSDContentCollector::_fillAndShadowProperties(const VSDFillStyle 
     }
   }
   else
-    // fill types we don't handle right, but let us approximate with solid fill
+    // fill types we don't handle right, but let us approximate with solid fill of background colour
   {
     styleProps.insert("draw:fill", "solid");
     styleProps.insert("draw:fill-color", getColourString(style.bgColour));
+    if (style.bgTransparency > 0)
+      styleProps.insert("draw:opacity", 1 - style.bgTransparency, librevenge::RVNG_PERCENT);
+    else
+      styleProps.remove("draw:opacity");
   }
 
   if (style.shadowPattern)
@@ -2598,15 +3405,6 @@ void libvisio::VSDContentCollector::_fillAndShadowProperties(const VSDFillStyle 
     styleProps.insert("draw:shadow-opacity",(double)(1 - style.shadowFgColour.a/255.), librevenge::RVNG_PERCENT);
   }
 }
-
-void libvisio::VSDContentCollector::collectStyleThemeReference(unsigned /* level */, const boost::optional<long> &lineColour,
-                                                               const boost::optional<long> &fillColour, const boost::optional<long> &shadowColour,
-                                                               const boost::optional<long> &fontColour)
-{
-  VSDOptionalThemeReference themeReference(lineColour, fillColour, shadowColour, fontColour);
-  m_styles.addStyleThemeReference(m_currentStyleSheet, themeReference);
-}
-
 
 void libvisio::VSDContentCollector::collectFieldList(unsigned /* id */, unsigned level)
 {
@@ -2683,12 +3481,11 @@ void libvisio::VSDContentCollector::_handleLevelChange(unsigned level)
 
         if (m_currentFillGeometry.empty() && m_currentLineGeometry.empty() && !m_noShow)
         {
-          for (std::map<unsigned, VSDGeometryList>::const_iterator cstiter = m_stencilShape->m_geometries.begin();
-               cstiter != m_stencilShape->m_geometries.end(); ++cstiter)
+          for (const auto &geometry : m_stencilShape->m_geometries)
           {
             m_x = 0.0;
             m_y = 0.0;
-            cstiter->second.handle(this);
+            geometry.second.handle(this);
           }
         }
         m_isStencilStarted = false;
@@ -2699,9 +3496,7 @@ void libvisio::VSDContentCollector::_handleLevelChange(unsigned level)
     m_originalY = 0.0;
     m_x = 0;
     m_y = 0;
-    if (m_txtxform)
-      delete(m_txtxform);
-    m_txtxform = 0;
+    m_txtxform.reset();
     m_xform = XForm();
     m_NURBSData.clear();
     m_polylineData.clear();
@@ -2721,15 +3516,13 @@ void libvisio::VSDContentCollector::startPage(unsigned pageId)
     _flushShape();
   m_originalX = 0.0;
   m_originalY = 0.0;
-  if (m_txtxform)
-    delete(m_txtxform);
-  m_txtxform = 0;
+  m_txtxform.reset();
   m_xform = XForm();
   m_x = 0;
   m_y = 0;
   m_currentPageNumber++;
   if (m_groupXFormsSequence.size() >= m_currentPageNumber)
-    m_groupXForms = m_groupXFormsSequence.size() > m_currentPageNumber-1 ? &m_groupXFormsSequence[m_currentPageNumber-1] : 0;
+    m_groupXForms = m_groupXFormsSequence.size() > m_currentPageNumber-1 ? &m_groupXFormsSequence[m_currentPageNumber-1] : nullptr;
   if (m_groupMembershipsSequence.size() >= m_currentPageNumber)
     m_groupMemberships = m_groupMembershipsSequence.begin() + (m_currentPageNumber-1);
   if (m_documentPageShapeOrders.size() >= m_currentPageNumber)
@@ -2765,30 +3558,21 @@ void libvisio::VSDContentCollector::endPages()
 
 bool libvisio::VSDContentCollector::parseFormatId(const char *formatString, unsigned short &result)
 {
-  using namespace ::boost::spirit::classic;
+  using namespace boost::spirit::qi;
 
   result = 0xffff;
 
-  uint_parser<unsigned short,10,1,5> ushort_p;
-  if (parse(formatString,
-            // Begin grammar
-            (
-              (
-                str_p("{<") >>
-                ushort_p[assign_a(result)]
-                >> str_p(">}")
-              )
-              |
-              (
-                str_p("esc(") >>
-                ushort_p[assign_a(result)]
-                >> ')'
-              )
-            )>> end_p,
-            // End grammar
-            space_p).full)
+  uint_parser<unsigned short,10,1,5> ushort5;
+  auto first = formatString;
+  const auto last = first + strlen(formatString);
+  if (phrase_parse(first, last,
+                   (
+                     "{<" >> ushort5 >> ">}"
+                     | "esc(" >> ushort5 >> ')'
+                   ),
+                   space, result))
   {
-    return true;
+    return first == last;
   }
   return false;
 }
@@ -2799,11 +3583,12 @@ void libvisio::VSDContentCollector::appendCharacters(librevenge::RVNGString &tex
     return appendCharacters(text, characters);
   if (format == VSD_TEXT_UTF8)
   {
-    for (std::vector<unsigned char>::const_iterator iter = characters.begin();
-         iter != characters.end(); ++iter)
-    {
-      text.append((const char)*iter);
-    }
+    // TODO: revisit for librevenge 0.1
+    std::vector<unsigned char> buf;
+    buf.reserve(characters.size() + 1);
+    buf.assign(characters.begin(), characters.end());
+    buf.push_back(0);
+    text.append(reinterpret_cast<const char *>(buf.data()));
     return;
   }
 
@@ -2842,25 +3627,21 @@ void libvisio::VSDContentCollector::appendCharacters(librevenge::RVNGString &tex
   UChar32  ucs4Character = 0;
   if (format == VSD_TEXT_SYMBOL) // SYMBOL
   {
-    for (std::vector<unsigned char>::const_iterator iter = characters.begin();
-         iter != characters.end(); ++iter)
+    for (unsigned char character : characters)
     {
       if (0x1e == ucs4Character)
-      {
-        _appendField(text);
-        continue;
-      }
-      else if (*iter < 0x20)
+        ucs4Character = 0xfffc;
+      else if (character < 0x20)
         ucs4Character = 0x20;
       else
-        ucs4Character = symbolmap[*iter - 0x20];
+        ucs4Character = symbolmap[character - 0x20];
       appendUCS4(text, ucs4Character);
     }
   }
   else
   {
     UErrorCode status = U_ZERO_ERROR;
-    UConverter *conv = NULL;
+    UConverter *conv = nullptr;
     switch (format)
     {
     case VSD_TEXT_JAPANESE:
@@ -2916,7 +3697,7 @@ void libvisio::VSDContentCollector::appendCharacters(librevenge::RVNGString &tex
         if (U_SUCCESS(status) && U_IS_UNICODE_CHAR(ucs4Character))
         {
           if (0x1e == ucs4Character)
-            _appendField(text);
+            appendUCS4(text, 0xfffc);
           else
             appendUCS4(text, ucs4Character);
         }
@@ -2940,12 +3721,7 @@ void libvisio::VSDContentCollector::appendCharacters(librevenge::RVNGString &tex
     {
       UChar32 ucs4Character = ucnv_getNextUChar(conv, &src, srcLimit, &status);
       if (U_SUCCESS(status) && U_IS_UNICODE_CHAR(ucs4Character))
-      {
-        if (0xfffc == ucs4Character)
-          _appendField(text);
-        else
-          appendUCS4(text, ucs4Character);
-      }
+        appendUCS4(text, ucs4Character);
     }
   }
   if (conv)
@@ -2964,6 +3740,125 @@ void libvisio::VSDContentCollector::collectMisc(unsigned level, const VSDMisc &m
 {
   _handleLevelChange(level);
   m_misc = misc;
+}
+
+void libvisio::VSDContentCollector::collectLayerMem(unsigned level, const VSDName &layerMem)
+{
+  _handleLevelChange(level);
+  m_currentLayerMem.clear();
+
+  if (layerMem.m_data.empty())
+    return;
+
+  librevenge::RVNGString text;
+  std::vector<unsigned char> tmpData(layerMem.m_data.size());
+  memcpy(&tmpData[0], layerMem.m_data.getDataBuffer(), layerMem.m_data.size());
+  appendCharacters(text, tmpData, layerMem.m_format);
+
+  using namespace boost::spirit::qi;
+  auto first = text.cstr();
+  const auto last = first + strlen(first);
+  bool bRes = phrase_parse(first, last, int_ % ';', space, m_currentLayerMem) && first == last;
+
+  if (!bRes)
+    m_currentLayerMem.clear();
+}
+
+void libvisio::VSDContentCollector::collectLayer(unsigned id, unsigned level, const VSDLayer &layer)
+{
+  _handleLevelChange(level);
+  m_currentLayerList.addLayer(id, layer);
+}
+
+void libvisio::VSDContentCollector::_appendVisibleAndPrintable(librevenge::RVNGPropertyList &propList)
+{
+  bool visible = m_currentLayerList.getVisible(m_currentLayerMem);
+  bool printable = m_currentLayerList.getPrintable(m_currentLayerMem);
+
+  if (visible && printable)
+    return;
+  else if (!visible && !printable)
+    propList.insert("draw:display", "none");
+  else if (!visible && printable)
+    propList.insert("draw:display", "printer");
+  else if (visible && !printable)
+    propList.insert("draw:display", "screen");
+}
+
+void libvisio::VSDContentCollector::_bulletFromParaFormat(libvisio::VSDBullet &bullet, const libvisio::VSDParaStyle &paraStyle)
+{
+  bullet.m_textPosAfterBullet = paraStyle.textPosAfterBullet;
+  bullet.m_bulletFontSize = paraStyle.bulletFontSize;
+  VSDName name = paraStyle.bulletFont;
+  if (name.m_data.empty())
+    bullet.m_bulletFont.clear();
+  else
+    _convertDataToString(bullet.m_bulletFont, name.m_data, name.m_format);
+  if (!paraStyle.bullet)
+  {
+    bullet.m_bulletStr.clear();
+    bullet.m_bulletFont.clear();
+    bullet.m_bulletFontSize = 0.0;
+    bullet.m_textPosAfterBullet = 0.0;
+  }
+  else
+  {
+    name = paraStyle.bulletStr;
+    if (name.m_data.empty())
+      bullet.m_bulletStr.clear();
+    else
+      _convertDataToString(bullet.m_bulletStr, name.m_data, name.m_format);
+    if (bullet.m_bulletStr.empty())
+    {
+      switch (paraStyle.bullet)
+      {
+      case 1: // U+2022
+        appendUCS4(bullet.m_bulletStr, 0x2022);
+        break;
+      case 2: // U+25CB
+        appendUCS4(bullet.m_bulletStr, 0x25cb);
+        break;
+      case 3: // U+25A0
+        appendUCS4(bullet.m_bulletStr, 0x25a0);
+        break;
+      case 4: // U+25A1
+        appendUCS4(bullet.m_bulletStr, 0x25a1);
+        break;
+      case 5: // U+2756
+        appendUCS4(bullet.m_bulletStr, 0x2756);
+        break;
+      case 6: // U+27A2
+        appendUCS4(bullet.m_bulletStr, 0x27a2);
+        break;
+      case 7: // U+2714
+        appendUCS4(bullet.m_bulletStr, 0x2714);
+        break;
+      default:
+        appendUCS4(bullet.m_bulletStr, 0x2022);
+        break;
+      }
+    }
+  }
+}
+
+void libvisio::VSDContentCollector::_listLevelFromBullet(librevenge::RVNGPropertyList &propList, const libvisio::VSDBullet &bullet)
+{
+  if (!bullet)
+    return;
+  propList.insert("librevenge:level", 1);
+  propList.insert("text:bullet-char", bullet.m_bulletStr);
+  if (!(bullet.m_bulletFont.empty()))
+    propList.insert("fo:font-family", bullet.m_bulletFont);
+  if (bullet.m_bulletFontSize > 0.0)
+    propList.insert("fo:font-size", bullet.m_bulletFontSize*72.0, librevenge::RVNG_POINT);
+  else if (bullet.m_bulletFontSize < 0.0)
+    propList.insert("fo:font-size", -bullet.m_bulletFontSize, librevenge::RVNG_PERCENT);
+  else
+    propList.insert("fo:font-size", 1.0, librevenge::RVNG_PERCENT);
+  if (bullet.m_textPosAfterBullet > 0.0)
+    propList.insert("text:min-label-width", bullet.m_textPosAfterBullet);
+  else
+    propList.insert("text:min-label-width", 0.25);
 }
 
 /* vim:set shiftwidth=2 softtabstop=2 expandtab: */

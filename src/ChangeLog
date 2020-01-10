@@ -1,3 +1,1732 @@
+2017-10-21  David Tardon  <dtardon@redhat.com>  [85529f5490b7b5d8ec3e8231db3b5640bce58839]
+
+	be explicit
+
+	Change-Id: I7b140fe35f32c96f51f21c67597a9e759cdca9e8
+
+2017-10-21  David Tardon  <dtardon@redhat.com>  [a0694f22ddf9ba2fa8a33940ac4761d48b0eef46]
+
+	check length, not number of elements
+
+	Regression since commit cf0303b0ca57d3f54aa50686d38aaa149c02d034
+	"oss-fuzz: avoid big allocations".
+
+	Change-Id: Ib0520513469d1de8c00085d1a86b9885b67873da
+
+2017-10-21  David Tardon  <dtardon@redhat.com>  [3f9664f3a99c320e44f8c1c5522dee7bf11e0bfa]
+
+	source files are included automatically
+
+	Change-Id: If54011a933d9ec43b58e568454d3b423da61565c
+
+2017-10-21  David Tardon  <dtardon@redhat.com>  [b91ec4938fbe3b9d9e74b9d509ef4fdb8eb05246]
+
+	add coverity to NEWS
+
+	Change-Id: I286544c96c55d81c44d52c5a6a1fdc591287b451
+
+2017-10-21  David Tardon  <dtardon@redhat.com>  [d68dfb12140593c36526ba0bb6495300dbc974fe]
+
+	cid#1312142 sanitize loop bound
+
+	Change-Id: I08e9f51af44929e41bd68f3fae843105eb2c6930
+
+2017-10-21  David Tardon  <dtardon@redhat.com>  [ef52a208b720a6f6e3c748ab51ee19c859e9e186]
+
+	cid#1256666 sanitize loop bound
+
+	Change-Id: Ib853772be55563f2ccd548f866ec299d7b906d6a
+
+2017-10-21  David Tardon  <dtardon@redhat.com>  [99e5b63aae2e154be920edd789a4a2236af10c92]
+
+	cid#1219709 sanitize loop bound
+
+	Change-Id: I199555c4b59d837af7e30cd7f8c6f643b3f23a5e
+
+2017-10-21  David Tardon  <dtardon@redhat.com>  [895f7ec3c28b498b7a293a40596c24a7dcb76e30]
+
+	cid#1219708 sanitize loop bound
+
+	Change-Id: I60bd5e3862ea1cca18089c0f65c40e4cc3173832
+
+2017-10-21  David Tardon  <dtardon@redhat.com>  [3d563913b415e461781f6ed02a2cf1eceb3997c2]
+
+	cid#1219707 sanitize loop bound
+
+	Change-Id: Idc3ffb4f82122e228f11af4ca5c08b9b988f2c98
+
+2017-10-21  David Tardon  <dtardon@redhat.com>  [74ea3694d6a341c9821edd958fd647fbb0458273]
+
+	cid#1325211 fix logic
+
+	Change-Id: I62fb5bec286444c4cc6099d00474bf260f4ae35b
+
+2017-10-21  David Tardon  <dtardon@redhat.com>  [b1fe6905534d6e35ac4ef8b3d3266f1a83a772cd]
+
+	cid#1419957 rewrite to avoid coverity warning
+
+	Change-Id: I4c1f1e3f7011c35625c8c56afa9ddf04d1217aa3
+
+2017-10-21  David Tardon  <dtardon@redhat.com>  [61419371f3dceaa6a959a22f77f431966c9689f5]
+
+	add test for seek to end
+
+	Change-Id: Iab6177acc5ae4ca78b34b4110d9c0e725d8d5d87
+
+2017-10-21  David Tardon  <dtardon@redhat.com>  [a77b8691322b469d2a35e2a287f81728bd0329a5]
+
+	implement seek to end for internal stream
+
+	Change-Id: Iad3b402e5de853dd851012344682c55affa0c9de
+
+2017-10-21  David Tardon  <dtardon@redhat.com>  [5e2a48e31ed0208ce59bbfd6beb1b3977ec75538]
+
+	prepare for a release
+
+	Change-Id: I12d0d8e4d99a588bc8683d6cfb821718fbde4ff2
+
+2017-10-20  David Tardon  <dtardon@redhat.com>  [aef4af08f5a2a6e3301cfe3088975820185da81d]
+
+	drop pointless casts
+
+	Change-Id: I2ac4f2922acd2f789bb1c7322c0d888ab1f31d0c
+
+2017-10-20  David Tardon  <dtardon@redhat.com>  [04611b9f26cce0e7aa6c9901ae389243239ebc95]
+
+	ofz#2686 fix division by 0
+
+	Change-Id: I853d263718a20f06e5bf5f8d834ca32be0a23023
+
+2017-10-19  David Tardon  <dtardon@redhat.com>  [916a0cf635f351e22b44de27ba42e9654b4ee29f]
+
+	ofz#2521 fix OOB read from vector
+
+	Change-Id: Ia6b08452dca71ae68bb0e9f2692ffdd75da9f537
+
+2017-10-17  David Tardon  <dtardon@redhat.com>  [dc81ff725f10744ee9455a55b3c627bc02b78ab1]
+
+	ofz#3646 limit the max. degree of NURBS even more
+
+	Change-Id: I4b48e78aca4953d60d5a2a5fab7869c0a292cc21
+
+2017-10-17  David Tardon  <dtardon@redhat.com>  [c32345e7eb1890d9f52f3dc02acc0952dd81e53f]
+
+	avoid excessive reallocations
+
+	Change-Id: Ibb224bb7f7854343fd336cf78f81a71a433f72af
+
+2017-10-17  David Tardon  <dtardon@redhat.com>  [8bbd72308c0968084bb55173192863ca9554241c]
+
+	restrict scope of var
+
+	Change-Id: Ie6af8b5408b6dc8d5920843aafd92e935ef4df42
+
+2017-10-17  David Tardon  <dtardon@redhat.com>  [20e3d231bed64917a9f683541100cf53e98c26c5]
+
+	drop always-true tests
+
+	Change-Id: I1788036303edb2837bbb1d77dbbc5a431f3293c3
+
+2017-10-17  David Tardon  <dtardon@redhat.com>  [329afd8d1461b28a0ef5fcf9da21bec960eb7257]
+
+	avoid needless reallocations
+
+	Change-Id: Id6af494bb71734f52a4d8c3ac094f917ff448538
+
+2017-10-17  David Tardon  <dtardon@redhat.com>  [879c3044e33c1b971cf9146a3ea4571a9ae60b4d]
+
+	this cannot happen here
+
+	Change-Id: Ibecaa5e63fee6ee23657ef395b6fe5aa920a7da1
+
+2017-10-17  David Tardon  <dtardon@redhat.com>  [dc367e0d199940c55469dcb73649f326872375f3]
+
+	ofz#3520 limit the possible NURBS degree
+
+	Change-Id: If64244416d30e6356828c68e95cb22f318afeea9
+
+2017-10-16  David Tardon  <dtardon@redhat.com>  [febad4fdada8e2953d2dbd784e692daabfe25435]
+
+	drop outdated Windows build files
+
+	Change-Id: Iff3971bf3525ea3d91d7100d583dee4e11d00628
+
+2017-10-16  David Tardon  <dtardon@redhat.com>  [d37e5ea5d633307a9b828ba67141520112999cad]
+
+	fix rounding regression
+
+	... caused by commit c156c530df29972d6c9391348ec4351809cfd2e2 .
+
+	Change-Id: I83b50b5d0c31e5c58ea812ed007e6b40ea009883
+
+2017-10-13  David Tardon  <dtardon@redhat.com>  [4dd36e94494ad7cebf50595bd8be199dee8dda6d]
+
+	Revert "use VSD_ALMOST_ZERO macro consistently"
+
+	This reverts commit 2501d71f919cc3234718634eda82fd81ba9c9e78.
+
+	Change-Id: I5f1ebfac9880a16a3821df2027f048f4a4140c0f
+
+2017-10-09  David Tardon  <dtardon@redhat.com>  [4048f8c6d0bcef296e223dea1071ab11c4643030]
+
+	zlib hasn't been needed since the switch to librevenge
+
+	Change-Id: Ia2de012292ae6121da7ca14ac99890492add663d
+
+2017-09-28  David Tardon  <dtardon@redhat.com>  [b068c3252bb6791077c8e5df166542e96e35ec9f]
+
+	avoid output from fuzzers
+
+	Change-Id: I95dfbaf6f03892726b43f90e072f0122d4d971bb
+
+2017-09-26  David Tardon  <dtardon@redhat.com>  [93a653b83a8a22a674d74b876fb09cc2ad4a8994]
+
+	avoid possible leak
+
+	Change-Id: I3364eb94f626d5507d296bf322856e2452795e87
+
+2017-09-26  David Tardon  <dtardon@redhat.com>  [7739316072ae4a95b1225067b944828429380fd7]
+
+	ofz#3210 do not leak string
+
+	Change-Id: I5e0127e59438345a51c7037be64edf9ee5f3f565
+
+2017-09-19  Miklos Vajna  <vmiklos@collabora.co.uk>  [f958f47bf16eb932c6e6aa3caebdde67470cd705]
+
+	Convert explicit for loops to range-based ones where possible
+
+	This is most useful in libvisio::VSDMetaData::readPropertySetStream() to
+	avoid repeating ourselves.
+
+	Change-Id: Ieeca010476c776589b56b145f5b973eec86001fe
+
+2017-09-18  Miklos Vajna  <vmiklos@collabora.co.uk>  [7cf4bf3b624fadb327a54c63d880ee664e8434b5]
+
+	Convert 0 to nullptr where it's used as a pointer value
+
+	To make the code easier to read, because this means the remaining zeros
+	all mean numbers.
+
+	Change-Id: I677df217aae81e15496d47a93daaab633d8b903f
+
+2017-09-13  Miklos Vajna  <vmiklos@collabora.co.uk>  [f6c7fe7974fae43cc98c061f4a47d55a422d2d16]
+
+	Mark overriding member functions as 'override'
+
+	This does not affect the generated code (API or ABI), but:
+
+	1) Makes sure that in case the signature of one of these functions would
+	change by accident, the build breaks as the function no longer overrides
+	a base function.
+
+	2) Makes the code readable by explicitly marking all overriding
+	functions as 'override', where previously the reader had to read the
+	interface of the base class(es) as well to find out if the function is
+	virtual or not.
+
+	3) Since 'override' implies 'virtual', remove the 'virtual' keyword
+	where 'override' is present.
+
+	Change-Id: I482cbb5d22726b9a16c0f445fb945c24c69a5dd0
+
+2017-09-11  David Tardon  <dtardon@redhat.com>  [634a8eacdb0e06bd3e171e963d4a57f742da4b33]
+
+	fix build with older boost
+
+	Change-Id: I3a2e6d9d9e554f9e2ad010219379f5f61c5f8c25
+
+2017-09-10  Miklos Vajna  <vmiklos@collabora.co.uk>  [75d6778cba55b8ebfc47058c9d5ab058c779d603]
+
+	m4: MSVC defines __cplusplus as 199711L still
+
+	See e.g.
+	<https://stackoverflow.com/questions/37503029/cplusplus-is-equal-to-199711-in-msvc-does-it-support-c11>,
+	on MSVC we can't depend on the value of __cplusplus, since that one is a
+	too low value, even if everything else works fine.
+
+2017-09-08  David Tardon  <dtardon@redhat.com>  [0089be571831d162c6460aea7be2003822bdc91d]
+
+	tests need librevenge-stream
+
+	Change-Id: I54aad8e63223f9dd40e2a8a9a60c887b65dc5f56
+
+2017-09-08  David Tardon  <dtardon@redhat.com>  [7eeb092a87c3e233769aa292e9d012aff06c1927]
+
+	assume modern enough ICU is available
+
+	Change-Id: I07a995aaa13af07f44642afd38d711555d23c37b
+
+2017-07-29  David Tardon  <dtardon@redhat.com>  [57777755a70ac2e9522963ff037f55edccb483e6]
+
+	do not append UTF-8 chars by code unit
+
+	Change-Id: I9b0279b99d59ab69c1d720e865462b4e03b671bc
+
+2017-07-29  David Tardon  <dtardon@redhat.com>  [0a7e952f63add0b2127be11dc8371f9c037160c5]
+
+	fix debug build
+
+	Change-Id: Ic475c5808bae006d34a95d530c0a7f7e69e399f4
+
+2017-07-07  David Tardon  <dtardon@redhat.com>  [4c9f3fd5cf1de3e4c6c0d28b848b0d496cc24f0a]
+
+	ofz#2477 avoid divide by zero
+
+	Change-Id: I952670a60a0a8133509178449ac89dfad2091213
+
+2017-07-04  David Tardon  <dtardon@redhat.com>  [4207a1089a13726cbcf1b6e74d80f146544b7b8c]
+
+	ofz#1431 reject NURBS that do not have enough control points
+
+	Change-Id: I1ea6345ecb5b3f4f2d0979149dad103829c81bfa
+
+2017-07-03  David Tardon  <dtardon@redhat.com>  [246155061002dc7e373f9cad435ff4382f4ff000]
+
+	ofz#2335 avoid divide by zero
+
+	Change-Id: Icdc998f3415be6b70612305320faf2e08160f279
+
+2017-07-03  David Tardon  <dtardon@redhat.com>  [2501d71f919cc3234718634eda82fd81ba9c9e78]
+
+	use VSD_ALMOST_ZERO macro consistently
+
+	Change-Id: I8a40d35ac9a90d1e1683172dbff27bfd3250428c
+
+2017-06-20  David Tardon  <dtardon@redhat.com>  [c156c530df29972d6c9391348ec4351809cfd2e2]
+
+	ofz#2307 avoid division by 0
+
+	Change-Id: I963ea7f7d7349c2614572b101be559b2f365a803
+
+2017-06-20  David Tardon  <dtardon@redhat.com>  [d131eedbeb087f4eae263a927ed1c253e30d007b]
+
+	ofz#2268 avoid division by 0
+
+	Change-Id: Iaa07db26a677557499c9a1dc8cd4ce47c283aa2b
+
+2017-06-20  David Tardon  <dtardon@redhat.com>  [40a0f2216a4279942d2f8c367ff59d843062086c]
+
+	ofz#2252 avoid division by 0
+
+	Change-Id: Icb58538864ce87554b2777de9177995166ed2795
+
+2017-06-20  David Tardon  <dtardon@redhat.com>  [e5d9a09912e484db5fa9c62e27b2a1f4e13e065a]
+
+	use std::hypot
+
+	Change-Id: Ie15d7b3727077a45ec69e1727785a8ce16f5fafc
+
+2017-06-20  David Tardon  <dtardon@redhat.com>  [8e38c802d6631b4ec36a422be66fc2f12835b4db]
+
+	ofz#2248 avoid division by 0
+
+	Change-Id: Ic77513d0f7d315122c5c396e2e09d39cfc6e4cc8
+
+2017-06-06  David Tardon  <dtardon@redhat.com>  [229da5c2e86171d2a61f183759727f8c7d77c66f]
+
+	astyle
+
+	Change-Id: I2e5c31ba030aff764e2c52278e09ae09cf6e1909
+
+2017-06-02  David Tardon  <dtardon@redhat.com>  [b467040741d865b97035205ac0f77986be4a0fe7]
+
+	disable -Werror by default
+
+	Change-Id: Iffc50c0ef2d3d2fd193875ded0326610eab85537
+
+2017-06-02  David Tardon  <dtardon@redhat.com>  [7789cba30b3f3a2554d8d047aad6d953a50aea3b]
+
+	WaE: fix name collision with Boost.Spirit
+
+	Change-Id: I2293dce01e402ea0798213df215989662ee44aaf
+
+2017-05-16  David Tardon  <dtardon@redhat.com>  [38692886d9f7e9f4bfb0f043d2019d6abf20c46b]
+
+	nitpick
+
+	Change-Id: I48aebd0207376719f70bf590709a3df0eb3452df
+
+2017-05-16  David Tardon  <dtardon@redhat.com>  [1b35448f766f9baffc1482da0e75360168f76f24]
+
+	drop :: prefix
+
+	Change-Id: Iae34b40ce6fb2f99badf91fb7f97523f123ffcd4
+
+2017-05-15  David Tardon  <dtardon@redhat.com>  [6a71379ad6a70b2b0e24400bb668d0accb3c9ab2]
+
+	drop unneeded macro
+
+	Change-Id: I352f2938e57ac93f8c787732cdd4757743fed901
+
+2017-05-15  David Tardon  <dtardon@redhat.com>  [f5f362797c76285216e46649970d0928135eeb81]
+
+	move from Spirit.Classic to Qi
+
+	Change-Id: I75e25d7b3430a9fc40cb8f8e79f53c12b6754c4e
+
+2017-05-15  David Tardon  <dtardon@redhat.com>  [d095eb768180f86df4f939d86f3debf3a7078872]
+
+	ofz#1000 avoid stack overflow
+
+	Change-Id: Ie570417aa0c6c8a3eefcaf954fd572f4a82308f2
+
+2017-05-05  David Tardon  <dtardon@redhat.com>  [214b5930a63e1f1652dd7a7e27a62627385bc6d9]
+
+	avoid possible overflow
+
+	Change-Id: I30d60ba7964fc731be1706edc864afa22882b9a2
+
+2017-05-04  David Tardon  <dtardon@redhat.com>  [8bcfc95cb59c60c4035d8752c2341137f0c6c3af]
+
+	ofz#1291 band-aid for out-of-bounds access
+
+	Change-Id: I9958903a5e68c2397c9e6948034a6e43114e4694
+
+2017-04-30  David Tardon  <dtardon@redhat.com>  [c420a080601063b2ad1b5473b4912fd0ad2b99d3]
+
+	add additional sanity check
+
+	Change-Id: I49a521d994b21e6eb35ac111eeb8f7d7b282d8df
+
+2017-04-30  David Tardon  <dtardon@redhat.com>  [ee0b00cf94fe9bd3c05d63f6ec91a692c5fee7b3]
+
+	add additional sanity check
+
+	Change-Id: I35caa3cd2a5a0434095258a5fcb967d025123cf7
+
+2017-04-29  David Tardon  <dtardon@redhat.com>  [6d7de66c8c48d56e0c4c9a84e6c1c2860b8b8508]
+
+	add additional sanity check
+
+	Change-Id: I3be2260c01e07a5c0e6337f6f9b1866990ac35df
+
+2017-04-24  David Tardon  <dtardon@redhat.com>  [7c24597e20d6405814b137bb6750b04c090f2763]
+
+	ofz#1256 don't let any exception through
+
+	Change-Id: Ifbaad9bbf825c2be3df53f0f277f76acd6e3d3f2
+
+2017-04-23  David Tardon  <dtardon@redhat.com>  [f0020452ade5eb48fb6e2c68b4c781e3069f2686]
+
+	simplify the check
+
+	Change-Id: I3a1f9cde30105d6d2f6d1159f09c94a0a6ad56c0
+
+2017-04-23  David Tardon  <dtardon@redhat.com>  [82366ddc1bb6a69e675f3660f0fe48d7dda12e6e]
+
+	there's nothing throwing an exception in the try block
+
+	Change-Id: I9caabef5080dd6bf3ef35346e33e401433e57d53
+
+2017-04-23  David Tardon  <dtardon@redhat.com>  [09a06c334933593259393748fc3d76d8869c4342]
+
+	shorten code by using smart ptrs
+
+	Change-Id: I4510fc441e8ff55cf86d7e0ac2856d630d190f23
+
+2017-04-23  David Tardon  <dtardon@redhat.com>  [4cb1b65766178ebbaac67da7189cad1fe47fdc2d]
+
+	ofz#1248 fix null ptr deref.
+
+	Change-Id: I925070d1cad5b04eb02c5a6d095c83bbe88d3a80
+
+2017-04-20  David Tardon  <dtardon@redhat.com>  [ce4e77cc8c716db1080bdebd63393268ff075aa6]
+
+	avoid possible null ptr deref.
+
+	Change-Id: I61807799dd0a36d9796d4580d85068207e92e26b
+
+2017-04-19  David Tardon  <dtardon@redhat.com>  [eb22461a45c1b134b1e5c7f88b745b682d8d294e]
+
+	avoid unchecked allocation
+
+	Change-Id: Iea7abc4a13fb93e5aad92c32cc7def5ccc6e4ceb
+
+2017-04-19  David Tardon  <dtardon@redhat.com>  [29c53340aed49696fe621cb9880934d64a0a26dd]
+
+	ofz#1032 avoid unchecked allocation
+
+	Change-Id: Ia6600a3592a05e2a5b875b8cbf30e75f7804fb5e
+
+2017-04-19  David Tardon  <dtardon@redhat.com>  [00228a945bbe026fcfa9af039ee81d4667f7b7b4]
+
+	ofz#1169 avoid null ptr deref.
+
+	Change-Id: I5b4d1390048519c907f0caed4a9341757bb866b2
+
+2017-04-18  David Tardon  <dtardon@redhat.com>  [260183803863967f2923dd2787f076f1cead3f0e]
+
+	ofz#1150 avoid out-of-bounds access to controlPoints
+
+	Change-Id: I82e1040d4dc3f0e688b49d949559a5a770127cf3
+
+2017-04-17  David Tardon  <dtardon@redhat.com>  [ed6c411a41b66e2320835a68570eeb21eda4a207]
+
+	use std::unique_ptr to manage current stencil
+
+	Change-Id: I62385c2e6a930186fe9469dbd609052f8cfb5a33
+
+2017-04-17  David Tardon  <dtardon@redhat.com>  [06cd52a14cb5d342637e7d6673e5f68ea38638f5]
+
+	ofz: check if there is a stencil before using it
+
+	Change-Id: Ib1fa347e007e84a2909449bf0a3bb73a55ca4d4f
+
+2017-04-17  David Tardon  <dtardon@redhat.com>  [7700c5c7fddeb9ab9662fd52a6b18f81e74fa342]
+
+	add vdx fuzzer
+
+	Change-Id: I036d1236fb500213847ae35133f61fe2d1a251b1
+
+2017-04-17  David Tardon  <dtardon@redhat.com>  [945c773e1fba31201d6309cbcf479e5e6c07e2dc]
+
+	add vsdx fuzzer
+
+	Change-Id: I44c46a519c3115abc10827bfd696de30a24fdcd0
+
+2017-04-15  David Tardon  <dtardon@redhat.com>  [439c1f927530f80f140c770a1757758ca20a2ba6]
+
+	the argument is not needed
+
+	Change-Id: Ia767f7f6299b46132458ad88c4e7887993a1595b
+
+2017-04-15  David Tardon  <dtardon@redhat.com>  [d414b1f2dbe40a460c56a0c9e327c98bfe7d45a8]
+
+	add __attribute__((format)) to debugPrint
+
+	Change-Id: I3bf566dee03fb7f2f15ecae14ac0001e4f26ba72
+
+2017-04-15  David Tardon  <dtardon@redhat.com>  [377f9c9da04f204afce4fd186d76ac0dcd85d96e]
+
+	drop verbose debug
+
+	Change-Id: I5c0e4880124deae64b9dd436767d09e372860842
+
+2017-04-15  David Tardon  <dtardon@redhat.com>  [98f452861b27bfe33252badf3c81e56d7ae3c1e6]
+
+	replace manual def. of int types by boost
+
+	Change-Id: I65693186fbb77df00feded3b9b62568f95830046
+
+2017-04-15  David Tardon  <dtardon@redhat.com>  [a77d75a76538c0217613ec59bff8a2494b61601b]
+
+	avoid self-assignment
+
+	Change-Id: I57eb9e74fbe3430fb99d13505865e7b5633d85bf
+
+2017-04-15  David Tardon  <dtardon@redhat.com>  [66854863c4ea412f2ce11c2ca4c4dc4fa373f9fa]
+
+	simplify container traversal
+
+	Change-Id: Id2e19536a679a62f0ff7da398e44aeeca0de8ce5
+
+2017-04-15  David Tardon  <dtardon@redhat.com>  [ac6dd7ff5f0156e3f5ed322a1d8c96b93bf04fbd]
+
+	the dtor does not need to be virtual
+
+	Change-Id: I57cdfd7469b979d29da7f82e2495c183e08ac299
+
+2017-04-15  David Tardon  <dtardon@redhat.com>  [0a9bbb5cd3d9d9fec4b2e7cc81f89cfff6c27e44]
+
+	avoid manual memory management
+
+	Change-Id: Idd0c24ea2008303b948040d3cca9faf97481426c
+
+2017-04-15  David Tardon  <dtardon@redhat.com>  [3bc1019910b759c4f27e0ff5f070eec1eeddc2a2]
+
+	avoid manual memory management
+
+	Change-Id: If6557a9222cf6183b6e14ff2bcab134d8215dce5
+
+2017-04-15  David Tardon  <dtardon@redhat.com>  [511dcb3dd6525f501ebed2f3f33472982972e34e]
+
+	explain what is being done
+
+	Change-Id: I9036aba359ce62bd7b3cbbd912626dcc12f7819f
+
+2017-04-15  David Tardon  <dtardon@redhat.com>  [d23fcf032369c9d68ce0d8e2262e3f25a5a83342]
+
+	ofz#1109 fix thinko
+
+	Change-Id: I45375acaf09e3bd9ce821c7aa7edcd357e120d2d
+
+2017-04-13  David Tardon  <dtardon@redhat.com>  [a112df73521975f5cbdd8d98e55fb04b3c941a55]
+
+	ofz: avoid division by 0
+
+	Change-Id: I2acea8d91e0fcae0b1d0d93a330730cdd1d449fc
+
+2017-04-13  David Tardon  <dtardon@redhat.com>  [c04bd767cae4d4896e9069ba437167dfb29ddbfb]
+
+	ofz: nothing to be done for empty data
+
+	Change-Id: If345b75ceffabe2c58e66b7b8fefdb5a1e376c3f
+
+2017-04-07  David Tardon  <dtardon@redhat.com>  [d8ee1ffbf7b2918e927a96502fd182cfcf50e1f6]
+
+	ofz#989 do not leak existing field with the same ID
+
+	Change-Id: Iac76df2ae09965732ae5fd42036fdb59886f071f
+
+2017-04-07  David Tardon  <dtardon@redhat.com>  [ad74fbdf0dadd419d02078f48e3a19cd8dd7a8f5]
+
+	drop unused includes
+
+	Change-Id: I4d75bfb583a7a5a7698b672b31ed139c439dc8f2
+
+2017-04-07  David Tardon  <dtardon@redhat.com>  [c41531b797af11b52dac75a88445090a8ec86339]
+
+	boost::shared_ptr -> std::shared_ptr
+
+	Change-Id: I873a476e8428c8c3ca0a45d721d5ba3b300a33b4
+
+2017-04-07  David Tardon  <dtardon@redhat.com>  [9ed04deb8286d87446ee211ee3f3ccd36ec8b874]
+
+	switch to C++11
+
+	Change-Id: I5e5f66968da458d8b3c8455b77b1bd9289c83e40
+
+2017-04-07  David Tardon  <dtardon@redhat.com>  [beb4eaead00835cde8e87becb5204fe1da70da52]
+
+	ignore only auto-generated .m4 files
+
+	Change-Id: I79c3085ce13b83f1a30e128e6b1ca9ad284ff50f
+
+2017-03-31  David Tardon  <dtardon@redhat.com>  [cf0303b0ca57d3f54aa50686d38aaa149c02d034]
+
+	oss-fuzz: avoid big allocations
+
+	Change-Id: I852f5359241975931b384800042760723db05b3a
+
+2017-03-30  David Tardon  <dtardon@redhat.com>  [7d1543b4f7bb4578735767141356bf61565a9fd9]
+
+	astyle
+
+	Change-Id: I6f5e0d95ec7a0e7d6c2db9e33d82568000747a3d
+
+2017-03-30  David Tardon  <dtardon@redhat.com>  [c086308b7949770c0eed3e23c002f682109979be]
+
+	refactor tests for -stream and -generators
+
+	Change-Id: I18773ac08b926e1c4f3e87e9dd0c1bda1a1a2665
+
+2017-03-30  David Tardon  <dtardon@redhat.com>  [2f1be67cec55af6fc694ec932a4a3f2c1d671af7]
+
+	create fuzzing driver for oss-fuzz
+
+	Change-Id: I9f778f52de5936f0555ec32d6deea8981dd6dc93
+
+2017-03-12  dennisroczek  <dennisroczek@libreoffice.org>  [6a4eeaad573b42adaefc1cf425ebbbb8ae97d5ea]
+
+	fix typo: usefull --> useful
+
+	Change-Id: I58234c3a031e67b6140e05c9fb1c270c7a4508c6
+	Reviewed-on: https://gerrit.libreoffice.org/35002
+	Reviewed-by: Adolfo Jayme Barrientos <fitojb@ubuntu.com>
+	Tested-by: Adolfo Jayme Barrientos <fitojb@ubuntu.com>
+
+2017-02-24  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [ca14a80bcb129878bb95d1187a8f3761e65b0842]
+
+	Parse Font scheme
+
+	Change-Id: If2de16033a921443025f582431c4a4b03a9e7145
+
+2017-02-23  David Tardon  <dtardon@redhat.com>  [8bfb5e3c19ab4e8aea09132881963facb76cfcda]
+
+	zlib is not needed since the move to librevenge
+
+	Change-Id: Ib83663e9cc7a808db966cd8dfb3fbcd1ee195da6
+
+2017-02-20  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [3f2307fafcf063ae3abd26df1b68acb6ef4821de]
+
+	Reformat
+
+	Change-Id: Ie279dc00725578641fd7780bb333047ec09fec36
+
+2017-02-06  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [fa12c4c3306da7c572bbd37c314f797d01cc26c1]
+
+	We will need to override readXForm1D in VSD5Parser
+
+	Change-Id: I95efbae6f33a34b16fcda3b013f3adb64bd84ea8
+
+2017-02-06  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [90bdec7116f35886a4a3bb687945e3ebbf9a9433]
+
+	Some more reading of theme references
+
+	Change-Id: Ic9dd48b086eef11e82ecac6b19b66669aea07844
+
+2017-02-06  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [ed97f8fb2124f3b19645b3ad5f756cabe88510eb]
+
+	Theme fill and shadow colour
+
+	Change-Id: I6659c65d0f940b3762b76dad01b3a353df59de9a
+
+2017-02-05  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [3b137389ae81d3b3ae326561d7a314e38afa5e4c]
+
+	This one was wrong
+
+	Change-Id: If578f9289aef9b4265545ef4b10215ea555091d7
+
+2017-02-05  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [fed7358999a4a49576cebc322fdf03848f130414]
+
+	Return uninitialized boost::optional instead of default Colour value
+
+	Change-Id: I7d3d48ac80cae9bc7fca5e5a8452122fef40c786
+
+2017-01-31  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [94f36d00499808d7588a0970ce0dc7470d1245c7]
+
+	Refactoring to get the text encoding from the font information
+
+	Change-Id: I2261310cf4ef2635e44cc80db809e7ca9fc4409f
+
+2017-01-31  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [dc7a4e0f70800fd747eaa7fef3e606d6bb9e5177]
+
+	Remove stray debug output
+
+	Change-Id: I97c9fd76eb48e944c60873f49ae215aa788db7b5
+
+2017-01-19  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [ea5f92515f98766062c2c24c0726ceb761abc19a]
+
+	Deduce text encoding from font name
+
+	Change-Id: I168765794d9d7598e2429f68f9a1d3c936ef8202
+
+2017-01-18  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [fd6c528dfb263f4bc6d288afd469089cfba0ef15]
+
+	Wrong code for VSD_USER_DEFINED_CELLS
+
+	Change-Id: I056e7e8fdc4b858bcfc8e992d12278ca08f44610
+
+2016-12-12  David Tardon  <dtardon@redhat.com>  [da0d4a764f0e5862a2ed930b27b9c440ec397b90]
+
+	add test for correct bmp output
+
+	Change-Id: I7443f4408c3733542020aeab3a888baf48a231d1
+
+2016-12-12  David Tardon  <dtardon@redhat.com>  [2e5496881e0b14da3a8c0acf5de6be0f49f80350]
+
+	emit bmps with color palette correctly
+
+	Change-Id: I731ab9629fdc08c54b43cdcb21a81633bd89f569
+
+2016-11-29  David Tardon  <dtardon@redhat.com>  [079034b8aa1d4b7bd07a81ef46059cdb6b2f4b38]
+
+	add test for text block with no bg color
+
+	Change-Id: Ic6177cbea568c80d93774a95a3704077db42f62f
+
+2016-11-29  David Tardon  <dtardon@redhat.com>  [a3cf2c6d02c29e0a69794ead64dd932fa9e3f24b]
+
+	fix parsing of text block bg color in some cases
+
+	It appears that if the color index is 0xff, no color should be set.
+
+	Change-Id: I0dcea16ed5d61292d84e82904b863c1ccafd9d7a
+
+2016-05-29  Julien Nabet  <serval2412@yahoo.fr>  [10f1e175b2dc83cc486614ac5a7a3b286eea7c0a]
+
+	cppcheck: Prefer prefix ++/-- operators for non-primitive types
+
+	Change-Id: Ib375053b5830f8120dccdfa4278c4138b02deba8
+
+2016-04-18  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [21027b7349a17cc18f74b28e9f1b32358e47135f]
+
+	Some reading of shape ids of shapes that a connector connects
+
+	Change-Id: I0492fea6ad37a590580ec2c2a05ef2e990f9efa1
+
+2016-04-16  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [e30e70afdc4a12f2f9ec9e039b82f623447c34cf]
+
+	Some work in view of parsing of connector information
+
+	Change-Id: I4e8ce436e92c1a411960c0a923466206993ab8e3
+
+2016-04-16  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [51fbff20ccea031a594cff6ed690d6073fa6c351]
+
+	Use the ids of the shapes
+
+	Change-Id: I3d8485e2b48a0c148528d39b85765b603ad3521d
+
+2016-03-22  David Tardon  <dtardon@redhat.com>  [be8436672d46c5d2870b27265355e493fc7c86be]
+
+	tdf#98791 remove namespace check for VDX
+
+	... to allow import of documents created by 3rd-party applications that
+	cannot be bothered to produce a valid XML (like lucidchart.com).
+
+	Change-Id: I70dda9a7d6e90e84d0eb78bd4dfa153e3e093528
+
+2016-02-07  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [237e3edb5a107d0928326ded5df3b0145f184ba4]
+
+	Don't build test directory if we disabled tests
+
+	Change-Id: Ibdf7dfa89186bc1b352601cb423a8dcd4809ecd6
+
+2016-02-07  Andreas Sturmlechner  <andreas.sturmlechner@gmail.com>  [13431c9e425d93f61a7fc16f99f8d8c6e71ed82b]
+
+	Enable building of unit tests without building tools
+
+	Change-Id: I43fe1ace56c61f36d4dd0dedcf3f5438ee8c0b91
+
+2016-01-18  David Tardon  <dtardon@redhat.com>  [c933df45a873e566c6ce4e5de5f829e64eb892f5]
+
+	use UTC
+
+	Change-Id: I03b40e2746ad90f2c7cf09560c218aab2a18090d
+
+2016-01-18  David Tardon  <dtardon@redhat.com>  [a97d30ad693374deab404ec31fe00665882cc949]
+
+	tdf#92396 test must be run in specific time zone
+
+	Change-Id: Idc9d85ae8c5c1a6eccca7e830baa05a867ac4402
+
+2016-01-18  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [e076cd1b5a400b32a8aa49fc87feaf3b1d3ba52e]
+
+	Read and use the information about scaling of the width of font
+
+	Change-Id: Ica723149a7165577323a7eb6a258cd8bd79026b3
+
+2016-01-15  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [49e7e5482d979866ac92981af0cf83d09610bc80]
+
+	Consider stencil txtxform in binary formats (fixes tdf#67914)
+
+	Change-Id: I45de3aab09de8320999476fb91814f048274a905
+
+2016-01-02  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [683bfbe077060b4b9321ccb08004e487b2c05ace]
+
+	Try even more look like visio for line rounding (not using arcs yet though)
+
+	Change-Id: Ieadd5cc4ec26689f69d57c99fd5413b645adce38
+
+2016-01-02  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [c3cd48cd4c896a77a07dcca0d0b01c067013e47f]
+
+	Try to look a bit more like visio rounding
+
+	Change-Id: I3ab893ec2e8851c93dc2882c73535e7a3955f9bb
+
+2016-01-02  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [70f19aebaa21586aa2833b2685dc12fbfaea1923]
+
+	Small improvement
+
+	Change-Id: Id5832d351fb39c2d0889dbcecd12b1228e1a3e9b
+
+2016-01-02  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [2f36fc6cc89d5778f7f57632cecd516d06fc8d84]
+
+	Extract logic in order to not repeat oneself
+
+	Change-Id: I130ec67a55c486c5b3a0a9e4fb00bd7d1f22a057
+
+2015-12-30  David Tardon  <dtardon@redhat.com>  [f6d1c0c6a281d37713fea9a8319b5a28cb457486]
+
+	update README
+
+	Change-Id: I6b973947508ff4f811372b13b09bd61008af22f7
+
+2015-12-29  David Tardon  <dtardon@redhat.com>  [c64906f57fc989fd035f434720d0a28ea32cf9a5]
+
+	update NEWS
+
+	Change-Id: I054387196418801af78309995de8aac80264baf5
+
+2015-12-29  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [5e1dd4fe6b8fe15050139e63541c6950c9ca3bab]
+
+	Bump version and start NEWS entries
+
+	Change-Id: Ic6c6d0c5b8079e5cfd08e9294b3c73e2de2f8321
+
+2015-12-29  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [e5e30daf905fc6d41caa3c50d78ebc66b9e70c05]
+
+	Try to sort out 0-length path segments
+
+	Change-Id: Icaf05be1675850e9b0ff233be0cc4cb5bf86ca6a
+
+2015-12-29  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [53f7dacb2869feaa959f56a701f123839fbb8a80]
+
+	Avoid equality comparison of doubles, which is prone to rounding errors
+
+	Change-Id: I37ba61b95c6850ea008fd6f7ac042bea783249d7
+
+2015-12-29  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [d62d8b5f13b31b55706ad35fe69a871847a163e1]
+
+	A horrendous hack to emulate line rounding property
+
+	It needs some annotation not to forget the reasons behind
+	the mess. I will do it later, since still tracking down
+	little imperfections.
+
+	Change-Id: Ic6f9d58d69047e3926cc62b899fbc379ebbd58cf
+
+2015-12-28  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [c006852738bc5ffa6cffd125e980b5cdd9ade7ba]
+
+	Extract part of the path generation to be able to add rounding in next steps
+
+	Change-Id: I6ce348c7b14ff324f106be9ab615dbfae546a178
+
+2015-12-28  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [bd9f4c565f7af41b0e32f399430e3e20bb1c8797]
+
+	Annotate the _flushText in order to extract it from Dr. Alzheimer's influence
+
+	Change-Id: Icf2dc7b397688f464bc0de01d00c08992c82f88b
+
+2015-12-28  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [9df045f04190ed87d49a619821e6c16557a518cf]
+
+	Remove unnecessary code. This works the same without it.
+
+	Change-Id: I971775f35c8a4fc2d1955dd79e84f8486df9629e
+
+2015-12-27  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [f81b6a04609f1164ea4a006af43c2e9ce6dbf242]
+
+	Avoid paragraphs without span and thus fix make check
+
+	Change-Id: Id9376f0c4f63d092771d6c505b0ef9989e531005
+
+2015-12-27  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [24a9ae3175685a60079547bfdea65a4a4c7eabc4]
+
+	Trying to simplify the _flushText function and make it a bit more readable
+
+	Change-Id: I5a94a699ecca68df7957bcd7506ed87ed2162f87
+
+2015-12-27  David Tardon  <dtardon@redhat.com>  [1978e2d61843f70a3a6cc688074f7bd99d0fd718]
+
+	update AUTHORS to reflect reality
+
+	Change-Id: I9f01106c4cb5e51971388443970ea67dde7d21bc
+
+2015-12-27  David Tardon  <dtardon@redhat.com>  [adab8d5047f0f316dd9c04d33664bfbb6aa72559]
+
+	simplify dist. and inst. of headers
+
+	Change-Id: Ie12aaf8c1fbb4241d0cb1d572d00662283ef2052
+
+2015-12-27  David Tardon  <dtardon@redhat.com>  [c4f7fe74a12068ea3cbde8e5ea82b07e3cd3c8e3]
+
+	make --help output more help2man-friendly
+
+	Change-Id: Ibf1c4f868398b8e1c16ba0038f853d510c4dff21
+
+2015-12-27  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [46377333551996128b0b1b4a4d25eedbc35eee31]
+
+	Use U+FFFC as field placeholder and output field only in one place
+
+	Change-Id: I617ffd23b8577ae6ca71cfde07822a67cd683204
+
+2015-12-26  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [b33285f43cc30d1a464f55c25aee548761b9c0f0]
+
+	Revert "WIP[0]: sanitize the _flushText mess"
+
+	This reverts commit 31b0d9f6c9008c9e7b16cf79136afffc650a9fa9.
+
+2015-12-26  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [4785b4f9e40e72f0175e711121dc65ea96b298a1]
+
+	WIP[1]: sanitize the _flushText mess
+
+	Change-Id: I7e02cd0da6bcf5c2525d418c5fe07018f93c334e
+
+2015-12-26  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [31b0d9f6c9008c9e7b16cf79136afffc650a9fa9]
+
+	WIP[0]: sanitize the _flushText mess
+
+	Change-Id: I31f533ae26714317512167c7075fbc737d5b833e
+
+2015-12-23  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [c5e856cfad9f39ac89e2f5dc9c4bff33acaa6787]
+
+	Update NEWS for release
+
+	Change-Id: I79aaf1bf92a74379863e71044b969e39373c5371
+
+2015-12-23  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [dd3e1aa57823acd021c8c37076bc2624b6946bfe]
+
+	Parse bulletFont and bulletFontSize where applicable
+
+	Change-Id: Ibc5ad36a379a3a5bac0c8d561d1d2b33fbde9f91
+
+2015-12-22  David Tardon  <dtardon@redhat.com>  [72feb340c3eaecd73620388a6528e40797bada32]
+
+	fix test: there are 2 paragraphs now
+
+	Change-Id: I3413173c5dc9342fde246b767373975afbd458ab
+
+2015-12-22  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [1dfe3f4841700eddcbc4960f1a7d0a20916f7a36]
+
+	Use a variable
+
+	Change-Id: I10fc7bfaa565e229e953dda55c3dd7bdd57fef39
+
+2015-12-21  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [3d988f7dfeb7d1d15640b6b9df114122bd0e6036]
+
+	At least Visio 1 and Visio 2 do not support bullets
+
+	Change-Id: I3884028ab40c7106cbe51cb51036ec213d2b8a60
+
+2015-12-21  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [d75f197aec002592b3923550f90c25a1d1c6be20]
+
+	At least Visio 1 and Visio 2 do not support bullets
+
+	Change-Id: Ic1206d889247f27d7b81e6815af7caeae258d5e7
+
+2015-12-21  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [e1116a4cfb515b177e7b7203c0f8307431518c49]
+
+	Some protection against non-empty pp cp and tp + special value of bulletStr
+
+	Change-Id: Ifb8a8d287ed0e638c36a483b397f336841439036
+
+2015-12-21  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [46d75c2b3a02873097e3e64eb42c99422eda29d6]
+
+	Masters might be an empty element
+
+	Change-Id: I5035d759582e5862b7e4d07fe8b854ba07108197
+
+2015-12-20  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [21bf4036d74cde752fc3cea6ce3cd7fca2d27829]
+
+	Default value of this one is 0.25 inch
+
+	Change-Id: Ifffa10e36836a27a48b74b19c9a947a99d1d0bd6
+
+2015-12-20  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [303ad7bc004636c9008d3ca4314b731c6a4f9dde]
+
+	0x0a is a paragraph break and not line break in visio
+
+	Change-Id: Ib9f63146b408f7aec63fc7bc5bae82a8f8aec912
+
+2015-12-19  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [a41a69b78aa8a5407f6cdec419c5e7433388388b]
+
+	Better looking fix
+
+	Change-Id: I263f6eaa2c2506212948451cc3946e9b25756422
+
+2015-12-19  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [bf21d868c539d1664cbdd9d9ac15946637c6e6bd]
+
+	Fix build with recent clang that chokes on "register" keyword
+
+	Change-Id: Ifbcdae2035b906c37576ffe6c8bd5ad864bb3fda
+
+2015-12-19  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [5bc423adc427f85a3ca7909c0639770543dd88de]
+
+	Fix warnings about explicit constructors of boost optional
+
+	Change-Id: Icb7e6533a1b69e7a02b2c606ce8f65b466d2527e
+
+2015-12-18  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [3c23f01aa8947f7fc43db98f8b2987b1e1b87637]
+
+	Disable bullets for vsd5 for the while
+
+	Change-Id: Iac61f5d477b2d732785b6bfbb4b8a9a152f7b281
+
+2015-12-18  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [0766a97602f3dd8e68b47fd838d3897f20dc58da]
+
+	BIPU support of bullets
+
+	Change-Id: If859332ac564522fdad06c081b644fba0759880b
+
+2015-12-17  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [90c35b861c65ee1e4dfd12136ff0d7c65f8337f5]
+
+	Fix tab reading for VSD5 and lower
+
+	Change-Id: I226205030e458d9661a845cb87c1ac920341679c
+
+2015-12-17  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [b1434c82fa7d4c87390af2ed31d30b8fd6e5e3c6]
+
+	Increasing the version for a possible release in a near/far future
+
+	Change-Id: I3f5eee1486bd0f12364e6fd4418dc98217c0a345
+
+2015-12-16  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [9593bbf3b9ea47ccc864536c94f154ce68bad22f]
+
+	Collect and output tab stops
+
+	Change-Id: I6ab0b673b1f11b204ab0fbd4087b8a4dddad6027
+
+2015-12-16  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [2004a9be46f6a2e31e3da9889d365b546feb63b0]
+
+	Parse the tabs in VSD and account for character count
+
+	Change-Id: I7e4f41cf87986ffa6a573ebe821ec0e87c3846a8
+
+2015-12-16  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [20237fd6975368400d97fbf7ac18eae4fce98239]
+
+	Parse tab sets in VSDX parser
+
+	Change-Id: Iffdf1981a525607d216daee0507775236dbd9593
+
+2015-12-16  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [cf26b74d7aba1f6e764c31cfb4c7009d4e16f762]
+
+	Parse tab sets in VDX parser
+
+	Change-Id: Ic2f735f02c99046798867dae8d6a60821bb148b2
+
+2015-12-16  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [577575d95a81777156639c8831cffcd20c335c8e]
+
+	Add some variables to VSDXMLParserBase
+
+	Change-Id: Iaeb3444d0fb9cc256744f8df6ac725b06ceffeec
+
+2015-12-16  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [ecd9ebd303cda2dd4ca9fac85823d69e2f24e93b]
+
+	Add some variables to VSDParser
+
+	Change-Id: I7ca310269244e0ee1db616847d27a847c26a4a0c
+
+2015-12-16  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [afd15e87c3a85d2c5e86d5703a5f3ccf50d97002]
+
+	m_lead -> m_leader to correspond to the Visio terminology
+
+	Change-Id: I0944e0f3329f6761720048b0c9d0cc0bce698647
+
+2015-12-16  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [ccfc261d411d6be27967d28833bad633c06282eb]
+
+	Add tab sets to the VSDShape
+
+	Change-Id: I5648ab8d97cea6fd9ba1f5d2bcca796396cdf172
+
+2015-12-15  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [eb215fd49bd9dff8bbf3e5f37aede7036afffec9]
+
+	micro-optimization
+
+	Change-Id: If726061c9e4f543a4f174b35a40fc79d333d9fcc
+
+2015-12-15  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [68cee16b2d7f8e5d9f9c4699822542664bbf492f]
+
+	Free and return in one place
+
+	Change-Id: Ib0a38c4f9103b25f174a7b34830bff307fa6c9be
+
+2015-12-15  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [88e98e505666d953aa2ccee1633107226bf98e07]
+
+	Let me decrease and Him increase
+
+	Change-Id: Id92728267eb383d70e77204273f6458fae5277cc
+
+2015-12-15  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [fce884985c0fdec7b6bdb18ad2ee38bce821cc0b]
+
+	Work around the VSDX format stupidity
+
+	Change-Id: Ida105c55f1810e1230b6ccd6b975e13ed77da719
+
+2015-12-15  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [28e14efb6e036b2e75052f219136658f99b18957]
+
+	Some function to read tab stops in binary parsers
+
+	Change-Id: Ibfe37737600f2e8f61a3fca6839178b1812355ea
+
+2015-12-15  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [067605a0cd9688ed31d77a85b292d81a501c5c16]
+
+	sort using "sort -u"
+
+	Change-Id: Ie22405d4b578b310403c5e76214116a54069b23b
+
+2015-12-15  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [dc440a5e00a655839bb5c7c8b360f8aaca3529d3]
+
+	Fix several paragraphs with the same character properties
+
+	Change-Id: I6dc3cd2be929b6213f3fb4f415a997f3211765ab
+
+2015-12-15  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [75001ca3c32757f08ed38ed9a64c50e7657c6002]
+
+	Output default tab-stop
+
+	Change-Id: Ic80a63e1d5ce827a5a7054413c9cab989c4fb19a
+
+2015-12-15  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [7b04394d01b5dfa227b213e0efac55dfd8d77c9d]
+
+	Read rounding in line properties
+
+	Change-Id: Ib08f7625f7a41d7f37e8abce60a94b87bc742ecf
+
+2015-12-14  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [516f4f64d96e5880fdad683610af39a1d93900bc]
+
+	Revert "Try to prepare the VSDGeometryList to the rounded rectangles"
+
+	This commit was just plain silly and I should have taken just a bit
+	more of coffee instead. So, we kick it out again.
+
+	This reverts commit 59862251d109604ec0b6f196193734810334de03.
+
+	Change-Id: Ie2267aa8af22e76a02b2e08527dafbd1cc175c95
+
+2015-12-14  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [59862251d109604ec0b6f196193734810334de03]
+
+	Try to prepare the VSDGeometryList to the rounded rectangles
+
+	Change-Id: I7b322532fe88b53f6ec2ea66bc39d5104733f6bf
+
+2015-12-14  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [8ce3cd43bfb1190574296b7fad873fe3fa16007d]
+
+	BIPU support of hatch fill
+
+	Change-Id: Ia0eadd391e820f03795ca0742934b49b283153e9
+
+2015-12-14  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [037e82fcaaacb3b6b68e54f424398e7260d64a62]
+
+	Improved handling of stencil text
+
+	Change-Id: I8fdae37eec051998b9e4b88b0a6116167da71eae
+
+2015-12-14  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [0ef93c0af5304b7876813a6fcff7cdaabc380cee]
+
+	Consider transparency in the solid fill we use instead of hatching
+
+	Change-Id: I429d20b2bad02781d22282f4eee72222c19e31f3
+
+2015-12-14  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [e7806e9b217fcd195b5f8297091fa83b40b8a95d]
+
+	Consider layer visibility and printability
+
+	Change-Id: Ie47bd7d066673ddc322826d7f33f99eadfbe1e16
+
+2015-12-12  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [1dbfd0fd94dea802ae45bd0560e2b91b0f0d6f38]
+
+	Distinguish correctly when no colour override was given for a given layer
+
+	Change-Id: I8db51e89f837c36ad9adcc62c611a76578d0f59b
+
+2015-12-12  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [06df5223293979bee7e781e8c88d76b4c3fe134b]
+
+	Some improvements to the layer colours + make xml parsers work
+
+	Change-Id: I78bfed0ec539fc1c034123c90ad27a9e48693232
+
+2015-12-11  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [0099751db287f87e6d5b1dee5d2ef2479040d188]
+
+	Some layer in xml parsers WIP
+
+	Change-Id: Ic5a85349aeecfbc3885e61e668c50fb9e9c568f6
+
+2015-12-11  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [69ae3cb64d39575cb1875acc705763e3dabfb99a]
+
+	Account for layer membership for stroke colour and for text colour
+
+	Change-Id: I137c039f548b42003f2b0de94d6efd09d8f1a212
+
+2015-12-11  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [63841a8aa1798a0cb012fbaed3acae11f54f3485]
+
+	Parsing layer membership for binary parsers
+
+	Change-Id: Ieaecf3764d4f0dc2cf33a3f69f5b89ba7874ae2c
+
+2015-12-11  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [b689fb10a62927b4325661e7783c4f9cb670b000]
+
+	Some little changes to parse the layerlist the same way everywhere
+
+	Change-Id: Ie7814f465f8f62c5f921f2042c1c305d1a975713
+
+2015-12-11  David Tardon  <dtardon@redhat.com>  [91fe658052c2cca6a9781c3df406180075182c17]
+
+	Werror=effc++
+
+	Change-Id: If89c203529602bce6e06033aa9ecdaac94185134
+
+2015-12-11  David Tardon  <dtardon@redhat.com>  [57f388c290aa3c39e48d997fa65a7bf8aab652f1]
+
+	space -> tab
+
+	Change-Id: I03156d8fb090db15acd3af989d6b5c0facbf4373
+
+2015-12-11  David Tardon  <dtardon@redhat.com>  [c2a0bbd9e0f95bb2a59f20692338f43e2257016a]
+
+	BUILD_EXTRA_DIST does not work
+
+	Change-Id: Ib1ad01453358bd463f3e098eb1442f7db85cdfc8
+
+2015-12-11  David Tardon  <dtardon@redhat.com>  [7e59bcba921da321688547336fcecaf66b930c9f]
+
+	avoid explicit object file deps
+
+	Change-Id: I3872e63e7b4c368feb2bbd437619abbaa3f52bda
+
+2015-12-11  David Tardon  <dtardon@redhat.com>  [5d6578867ebe9fe0a83a7b2309f43ab9f1270adf]
+
+	check for perl too
+
+	Change-Id: I559576aef58d8e0321609efb06c845e4ebef6930
+
+2015-12-11  David Tardon  <dtardon@redhat.com>  [e9ef78c7e5313230768ba00f1b0e0cfb4fe0613a]
+
+	use pre-defined var.
+
+	Change-Id: I8fa5769f35ef8de627c46c109bd6241155fd163b
+
+2015-12-11  David Tardon  <dtardon@redhat.com>  [ac497901123b3efe3c693709700cd432e68a8396]
+
+	do not require gperf for build from tarball
+
+	Change-Id: I10fe90e36d651d5db8264166568d83f832ea5ef6
+
+2015-12-11  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [b5c9438c238c17a7128cbd37249ff284a3e46f94]
+
+	Reading some of the layer information in xml parsers too
+
+	Change-Id: Ifae38d2131e3f9bae403f93f3f15cfe2bb9f7982
+
+2015-12-11  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [e51525145ebd369093a60ecb902a2739518dca31]
+
+	Some useful functions for the VSDLayerList
+
+	Change-Id: Icf8e1535adaa8fda02bd1cc89c8d4c42a2d0045c
+
+2015-12-11  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [e5b775bf4d651c3d44c55da9e863b085b3016bab]
+
+	New VSDLayer and VSDLayerList classes
+
+	Change-Id: I76796c76887cb284c2f11a5053decc6a46436957
+
+2015-12-10  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [c0b47ee2cbc759076a006f480c7f736dd73ef36b]
+
+	Don't bail out in the case of mismatch
+
+	Change-Id: I010bed6b45167850613d277cfb49541577360799
+
+2015-12-10  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [ad09e022b555cd18197ce76f05d86e522fd15037]
+
+	This is the name that appears in UI
+
+	Change-Id: I4b463a3f757d9d2a774bed86eb003771f4093815
+
+2015-12-10  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [c48b74568ae2e202d087def28fe4130e67f21bda]
+
+	Put the CXXFLAGS in the same place and make the gperf dependency work again
+
+	Change-Id: I2616512253ccfd2a03e67902ab37b6e5f881aaea
+
+2015-08-30  David Tardon  <dtardon@redhat.com>  [2968c3dff8572b4734cb42c7bd5b00222f7fb288]
+
+	fix build with boost 1.59
+
+	Change-Id: I21eebdfa99d379e57949bfe4bf7eb83aec16f916
+
+2015-08-25  David Tardon  <dtardon@redhat.com>  [4b03893826bcc5f859b0ac3bea6a98269499d99f]
+
+	sanitize page dimensions and scale
+
+	Change-Id: Ie170d9911b9f7349e4700efd5e2c089423f4218b
+
+2015-08-25  David Tardon  <dtardon@redhat.com>  [4700056698abce223b3da120d58019c4626b5e57]
+
+	afl: avoid out of bounds access to vector
+
+	Change-Id: I51fdad6cca395bb5aadc916ef452ee020f666607
+
+2015-08-05  David Tardon  <dtardon@redhat.com>  [7128ea06e51c712a549d95237093b836eee4db8f]
+
+	only run the char bg. color test with new libxml2
+
+	Change-Id: I74e342d5e1d79f1f5a162d5a0d5bb659cf7c49da
+
+2015-08-03  David Tardon  <dtardon@redhat.com>  [3a97bddcfb4a6d8cbd1899acad18d34f46e274ea]
+
+	assign the whole buffer at once
+
+	Change-Id: I6f83bd1a4da66a80a6e640f86b2eba55d54a7696
+
+2015-08-03  David Tardon  <dtardon@redhat.com>  [102b5084f3adf9fea175c9eaa856e43fb7065121]
+
+	afl: avoid null ptr deref.
+
+	Change-Id: I34ea438223cd32551123c97bb951a301307e5029
+
+2015-07-25  David Tardon  <dtardon@redhat.com>  [75a02c586f6ec49d4316f79004834250ef42b0e0]
+
+	fix test
+
+	The previous version only worked with libxml2 < 2.9.2, because of a bug
+	in handling nested elements of the same name.
+
+	Change-Id: I1368cedf5845895154806d4ecf427bfbed19165f
+
+2015-07-25  David Tardon  <dtardon@redhat.com>  [3b6d0b1c7c68defa667af9c073f35e5e702d9513]
+
+	prepare for a new release
+
+	Change-Id: I941d9ddb230f1f990dd276ed8ea1c5ab3bf058ab
+
+2015-07-25  David Tardon  <dtardon@redhat.com>  [998af1f9e3acadab72d9cb56c558ea3dce64a311]
+
+	C++11 syntax is not allowed
+
+	Change-Id: Ia705f789b3f9d600b03d25db90972a315e782302
+
+2015-07-25  David Tardon  <dtardon@redhat.com>  [bff49703c8dbb7bbae77537a0e783ca27755dc66]
+
+	C++11 syntax is not allowed
+
+	Change-Id: Id42b64c2ce7016874c6d55ab92f120c0d4d0e5e6
+
+2015-07-25  David Tardon  <dtardon@redhat.com>  [c8aa2de59a473d95374a7a1beac2aff8ee5c371e]
+
+	add missing include
+
+	Change-Id: Ibd003515271ad6211189e12b85eeddd980319770
+
+2015-07-25  David Tardon  <dtardon@redhat.com>  [e600236729af1c6307e68582a7eda2f93732fb38]
+
+	distribute newly added test docs
+
+	Change-Id: I7eb02cac3ee4137280856062b151738d336be0ac
+
+2015-07-25  David Tardon  <dtardon@redhat.com>  [aca1257a3ea68e1a3e83f62c92fa82192cbccaa6]
+
+	prepare for a new release
+
+	Change-Id: I3097abd098dc37d9a73d573eaa70e6948cab1e29
+
+2015-07-23  David Tardon  <dtardon@redhat.com>  [a548f7e813df966960fe9284602f91a79b0ea7e0]
+
+	tdf#92868 fix clang error in test
+
+	error: call to function 'operator<<' that is neither visible in the
+	template definition nor found by argument-dependent lookup
+
+	Change-Id: If0d5018c94870b504083de7c12b20b2c4ad26bdd
+
+2015-07-21  David Tardon  <dtardon@redhat.com>  [379749ebfba4dfee2b73696a62d1c87121fbfc3b]
+
+	use shared_ptr here too
+
+	Change-Id: I82dbb50a4e75326720f30a2dab8f732e8802b7e4
+
+2015-07-21  David Tardon  <dtardon@redhat.com>  [889311ab33a0c57d5f1801044f8cd8de7d93af53]
+
+	add const
+
+	Change-Id: Ieeef8936cce71f41bc2fbf114bc17739829152e9
+
+2015-07-21  David Tardon  <dtardon@redhat.com>  [23c914ca9e0e913ac4fde07522074f4e1f47b7ee]
+
+	plug a leak
+
+	Change-Id: Iece1e905a696df09b75a3a90483f76c52d6396d5
+
+2015-07-21  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [a85ef598bb5bd8cb656482354bff0bd857fcc8f9]
+
+	Make the conditions the same for VDXParser too
+
+	Change-Id: I325e1653250cf8e583a52aea9f2bf6275df9bff1
+
+2015-07-21  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [392d2d609d4f9aa1738e30da18385e832da2f379]
+
+	Fix dereferencing of uninitialized memory
+
+	Change-Id: Ic4d3c56257dec467325edd934c70074b656b31f4
+
+2015-07-21  David Tardon  <dtardon@redhat.com>  [77a88f128700e434c093eb53590be63022edbdea]
+
+	avoid overflows when reading chunk records
+
+	Change-Id: Iea13e63e977348a449b68eca329146ae6f097197
+
+2015-07-21  David Tardon  <dtardon@redhat.com>  [2bdd7a9bfd1ed1606b7348602196f0a2baf0c099]
+
+	astyle
+
+	Change-Id: I51eebdceb176ae9ded9860010a6b691d0af4cf95
+
+2015-07-21  David Tardon  <dtardon@redhat.com>  [f8392b3160f7b64263b324bf49b654007b98f80a]
+
+	sort file list
+
+	Change-Id: Ie7e75271d0e02b5dd5cac01269365268c57269d4
+
+2015-07-21  Andras Timar  <andras.timar@collabora.com>  [c1a5828d135b89ffb80cb096bce5f0aa745a265d]
+
+	unit test of VSDX char background handling
+
+	Change-Id: I4a57aa9465827108630ec85f5986bdd59e1a8f5c
+
+2015-07-21  Andras Timar  <andras.timar@collabora.com>  [251f18076a9429a88b10b42a76fdb1d5b6bc22e1]
+
+	tdf#92271 fix VSDX char background handling
+
+	When char background is not set, we should not export white.
+	When char background is set, we should export that color, not black.
+	Unfortunately transparency is not supported in ODF.
+
+	Change-Id: I805f06c8907243576a137152ac663dba40e720fb
+
+2015-07-21  Miklos Vajna  <vmiklos@collabora.co.uk>  [c6223727c94e83a7eb852ff5ae07a3610942cbd1]
+
+	VSDMetaData: need space for the terminating null-character
+
+	Change-Id: Ie9cab1687dd3187819ec8e3e89b3e9355da9b255
+
+2015-07-20  David Tardon  <dtardon@redhat.com>  [23364514c7f5099b6bd687f4011f7aec9d645d7e]
+
+	handle even more infinite loops in XML parser
+
+	Change-Id: Ic16f373c6a143b10d4a53c7c84f3433ebb3c323d
+
+2015-07-20  David Tardon  <dtardon@redhat.com>  [781201586a451393c62dde1c43dfb481c8dbaf24]
+
+	handle more infinite loops in XML parser
+
+	Change-Id: Ia39b230bd9ec76ba9bfa49820ea64f72ca1f35a6
+
+2015-07-20  David Tardon  <dtardon@redhat.com>  [c19e87440ef2d79ba199881c983f2be94fbef907]
+
+	use const
+
+	Change-Id: Idb34c470628f98aabfdcb75313705ce225a65bd7
+
+2015-07-20  David Tardon  <dtardon@redhat.com>  [8c59a6a236ec23558ac6645cdce4b58fdb002368]
+
+	avoid another infinite loop in XML parser
+
+	Change-Id: I73b3d064c8931f706e0df1e3bd837f0801491a51
+
+2015-07-20  David Tardon  <dtardon@redhat.com>  [c2031ad6125b4fcd8202778e74b58235cd419f69]
+
+	stop parsing if XML error is encountered
+
+	xmlTextReader either does not continue processing the document if it
+	encounters an error or it can get into an infinite loop in some cases.
+	XML_PARSE_RECOVER does not help. So we just give up in case of error.
+
+	Change-Id: I29615b656fc9b1dcd39aefbecc67da10c75fe0b6
+
+2015-07-20  David Tardon  <dtardon@redhat.com>  [5b75213bedc88d6df1d95611521a913ad97a4bdc]
+
+	move libxml2-related functions to a separate file
+
+	Change-Id: I41a37b02f72e5c8d42e636b54627716add60e70f
+
+2015-07-17  David Tardon  <dtardon@redhat.com>  [fcddf7e158245164b3e58b52bbd358eb1b10f07a]
+
+	do not leave dangling ptr around
+
+	Change-Id: I135e6e765bf365c3db41b38e169403b6b13a6ea1
+
+2015-07-17  David Tardon  <dtardon@redhat.com>  [8a4ec7e656c1ad36d257d267c2faa743f5d93416]
+
+	do not leave dangling ptr around
+
+	Change-Id: I4f8de0afaa5e8f7c8f2ff7d5c3bb7369b9b93924
+
+2015-07-17  David Tardon  <dtardon@redhat.com>  [bafa63b6c6c9f620bff667d48668aa80df843cea]
+
+	avoid null ptr deref.
+
+	Change-Id: I55fe94df71bda97ba5e4e8fe14160c27befe1a0b
+
+2015-07-16  David Tardon  <dtardon@redhat.com>  [1c71f0a300b012cca709662823e9cbfa85fb7b36]
+
+	avoid endless loop when reading broken file
+
+	Change-Id: I95ba48b926e51873786255e8933e94def4b04ace
+
+2015-07-16  David Tardon  <dtardon@redhat.com>  [03eed259ce331998af623cf5da5320441ed55d1f]
+
+	avoid endless loop when reading broken file
+
+	Change-Id: I4956a3438d273a06a11d96031e2759062dce1e95
+
+2015-07-16  David Tardon  <dtardon@redhat.com>  [4a2e82ddca257374ab04c7bbbc1869e666a2d6b9]
+
+	avoid copypasta
+
+	Change-Id: I5f7dc4912aebd763da27984fcd5644a9419901bf
+
+2015-07-16  David Tardon  <dtardon@redhat.com>  [730f1e72686b9101c380d90bbbf521c1ec53c532]
+
+	avoid endless loop when reading broken file
+
+	Change-Id: I512d48b5ea25d3784f5b63725d4ff3b8ad648ccc
+
+2015-07-15  David Tardon  <dtardon@redhat.com>  [17b71055939e80ea83506c633b908ca831bd0fad]
+
+	don't leak in case of exception
+
+	Change-Id: Ib9eb9e02b678bc892b4cefd9fb793a06b2302879
+
+2015-07-15  David Tardon  <dtardon@redhat.com>  [5e66100518d8e7f63e296178c48b1fc56fa3b765]
+
+	avoid memory leak
+
+	Change-Id: Ifb59e5f916b23fb681452c45149e56730ff36a89
+
+2015-07-15  David Tardon  <dtardon@redhat.com>  [1ffd6ef4ff54c47b65a78a44a9979083b54dba13]
+
+	afl: avoid null pointer dereference
+
+	Change-Id: I641e7ca93d903db3b2e211ec90e420dc249e162e
+
+2015-07-15  David Tardon  <dtardon@redhat.com>  [943728197d471f4a1554ff320ff42bf5cfaac324]
+
+	afl: avoid null pointer dereference
+
+	Change-Id: Ice2a9440ca6bfa4c032186a4a65d6ed2e537648a
+
+2015-07-15  David Tardon  <dtardon@redhat.com>  [db36f1a63b9d046f437e44072f43ff9bedcbd283]
+
+	afl: avoid null dereference
+
+	Change-Id: I37a3295a82bdc29fa38cf24b8d5005d992699214
+
+2015-07-15  David Tardon  <dtardon@redhat.com>  [75d144e106c82aeaa610be1279215b0a4d0b1c5b]
+
+	afl: avoid null dereference
+
+	Change-Id: I34cd4745be84a77ba2a380f0821712b8f439ccbc
+
+2015-07-15  David Tardon  <dtardon@redhat.com>  [f9286b5b5d183bbdb34a92e42d484992a3b3385e]
+
+	afl: don't leave dangling pointer around
+
+	Change-Id: I9ad2c1711954d8fe9164c8d51d288e1aa04c8372
+
+2015-07-14  David Tardon  <dtardon@redhat.com>  [072a9025d0267c4faff12f28c3b0c63c383516fe]
+
+	ignore errors when parsing metadata
+
+	Change-Id: Ia2f5e1882764899cc1dade967acbf474c7b80a3f
+
+2015-07-14  David Tardon  <dtardon@redhat.com>  [c2eb5794e865efa74fbf1c6be8ed9fadae137d85]
+
+	ignore errors when parsing metadata
+
+	Change-Id: I5780e7c95655766eb821045de70ed426eaa35be0
+
+2015-07-14  David Tardon  <dtardon@redhat.com>  [5e0cf3b1972fa26d28209a828933d2a6f95b49b1]
+
+	avoid memory leak
+
+	Change-Id: Ibd1e042f11f0191bda0a4ae3064df603137fe5ba
+
+2015-07-14  David Tardon  <dtardon@redhat.com>  [13eba01e48420e17525f271a0b1f9124fd22a8a2]
+
+	fix more string leaks
+
+	Change-Id: Ifc79cf5d91a262fb4d51d13d9d183164ccc24f07
+
+2015-07-14  David Tardon  <dtardon@redhat.com>  [5409f4e852318f59fc59bf56701205095954073b]
+
+	avoid a slew of string leaks
+
+	Change-Id: I72b02e1752df97501a0c1a5aef123f7f43dcdd2f
+
+2015-07-14  David Tardon  <dtardon@redhat.com>  [f6122c37edad438843660e4abf2792159a06a12d]
+
+	avoid memory leak
+
+	Change-Id: I66851b20c42e5a740a0401a61e8536d9b3e0b503
+
+2015-07-14  David Tardon  <dtardon@redhat.com>  [0aaab87fa47283c2dedc2c1c827fc56f0b24b74e]
+
+	avoid memory leak in case of exception
+
+	Change-Id: I1129c4a3e779270c6c5e43229d3d31a6376eb3b3
+
+2015-07-14  David Tardon  <dtardon@redhat.com>  [a69da92be817325e36e7ee5dcdb6c9d3146dad5a]
+
+	avoid leak of xmlTextReader
+
+	Change-Id: If82d2b1a81a742a65d9826513e3d83b779602b7b
+
+2015-07-14  David Tardon  <dtardon@redhat.com>  [e8e0700a9ac0c87e058678f64ae39d3eef4a11fd]
+
+	use shared_ptr for streams
+
+	Change-Id: I3733f901ea75bfaf55941832890408de637a0417
+
+2015-07-14  David Tardon  <dtardon@redhat.com>  [6403c07b9d5e420cce2c060c09223f81b2a5c48a]
+
+	use shared_ptr for streams
+
+	Change-Id: If33a4b0f1f47683412d6696f6d06de9844c5971c
+
+2015-07-14  David Tardon  <dtardon@redhat.com>  [2496ab82164620a13eca99862b93648bd1c79d03]
+
+	avoid double deletion in case of exception
+
+	Change-Id: Ic2767a987ab0890f0dc8fd4e087d0c830ff08bfa
+
+2015-06-29  Andras Timar  <andras.timar@collabora.com>  [fb715bb8a9154731e1629289cc6d43d7473dc460]
+
+	unit test of VSDX theme color import fix
+
+	Change-Id: I8b1466b83801e61c2d0c1b1a588f9d3867a063d1
+
+2015-06-29  Andras Timar  <andras.timar@collabora.com>  [5dc37c653ccb25f0353c2665899b1a0d94553745]
+
+	tdf#92270 VSDX theme color import fix
+
+	Change-Id: I4843762646c204d5c898d0f0dea503196a1e414a
+
+2015-05-04  David Tardon  <dtardon@redhat.com>  [2d0ca14036a96deb55767ad86a41533c7e3bf3e8]
+
+	add make astyle target
+
+	Change-Id: Id757438d7326e314e789f0e753edbc89e9893191
+
+2015-05-04  David Tardon  <dtardon@redhat.com>  [e39b9f080b9cd7ed0e64a43a4c6a053c1dd67718]
+
+	add missing breaks
+
+	Change-Id: I200b80dca1db001d49fb97326345539c02c66b90
+
+2015-04-14  Fridrich Štrba  <fridrich.strba@bluewin.ch>  [e472822686929a373ed30d32fd6ae82ec56b44f0]
+
+	Run doxygen -u on the doxygen.cfg file
+
+	Change-Id: If9d2e9b2c5ca371ab308d0fcacf3c9dfbd256649
+
+2015-02-27  Mihai Varga  <mihai.varga@collabora.com>  [3a8a08caebd5c8fbbc28ff34b0d7d0979662a56a]
+
+	More metadata extracted from VSD/VSDX files
+
+	Template, language, company and category metadata are extracted from
+	VSD/VSDX files. Company and category are set as custom properties.
+	I've also added unit tests for those 4 new document properties.
+
+	Change-Id: Ic14bfa11a2a8253c79dd4c4466afc7f6b2ce4ea9
+	Signed-off-by: Miklos Vajna <vmiklos@collabora.co.uk>
+
+2015-02-16  Richard PALO  <richard@NetBSD.org>  [9686192d63bd208df1c6b53c892ba5a680cdc4b6]
+
+	use std::pow in order to avoid compile time errors like: error: call of overloaded 'pow(int, uint16_t&)' is ambiguous
+
+	as seen on SunOS 5.11
+
+	Change-Id: I2ac60caa2b0c3731064cdea6150523a00647036e
+	Reviewed-on: https://gerrit.libreoffice.org/14481
+	Tested-by: David Tardon <dtardon@redhat.com>
+	Reviewed-by: David Tardon <dtardon@redhat.com>
+
+2015-02-02  David Tardon  <dtardon@redhat.com>  [1605e1a10b0769f9991280a58b3b40d042ede1df]
+
+	remove bashism
+
+	Change-Id: Iab654b8c82add951fa0d39a57695eeb21b21c332
+
+2015-01-28  Miklos Vajna  <vmiklos@collabora.co.uk>  [1bda66b9c0c1cc2b9dcf323a0a45e314b5d4410f]
+
+	VSDX: import <cp:category> as librevenge:category
+
+	Change-Id: Idb2367009d24c49d111227b8dca1b6e40045f8c9
+
+2015-01-06  David Tardon  <dtardon@redhat.com>  [8618e063c1ac0c9fdf60d5b401f8305d8b106d93]
+
+	why is this constant static?
+
+	Change-Id: I4e1129695c2f4fd14c491acfe916853ea33fb64f
+
+2015-01-06  David Tardon  <dtardon@redhat.com>  [949e96a5b47c3a1fcbc49d9f228398c641ab86af]
+
+	workaround build error on old 32-bit linux systems
+
+	"error: integer constant is too large for 'long' type"
+
+	Change-Id: Ib2a8987da0bdc03e2b479d8743f8366fde83c203
+
+2015-01-05  Caolán McNamara  <caolanm@redhat.com>  [49c0d44063c452f0927e8938951f065e1e488ecb]
+
+	workaround error C2589: ´(´ : illegal token on right side of ´::´
+
+	Change-Id: I653ef7386ac4bd77bce40601bae5d2fd84764c83
+
+2015-01-02  David Tardon  <dtardon@redhat.com>  [886221dccacd69d7dc7155fa42d3dd902286b846]
+
+	define more needed namespaces
+
+	Change-Id: I83ada29e6bc89d8f045cfbe7c099ca5ec6553645
+
 2015-01-02  David Tardon  <dtardon@redhat.com>  [0478fce6799d9a8e2d765cc4616a5f2de1c3c44e]
 
 	comment out 2 unused functions in test

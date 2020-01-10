@@ -11,165 +11,15 @@
 #define BOOST_LEXICAL_CAST_ASSUME_C_LOCALE 1
 #endif
 
+#include <memory>
 #include <sstream>
 #include <istream>
 #include <vector>
 #include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
-#include <libxml/xmlIO.h>
-#include <libxml/xmlstring.h>
 #include <librevenge-stream/librevenge-stream.h>
 #include "VSDXMLHelper.h"
 #include "libvisio_utils.h"
-
-
-namespace
-{
-
-extern "C" {
-
-  static int vsdxInputCloseFunc(void *)
-  {
-    return 0;
-  }
-
-  static int vsdxInputReadFunc(void *context, char *buffer, int len)
-  {
-    librevenge::RVNGInputStream *input = (librevenge::RVNGInputStream *)context;
-
-    if ((!input) || (!buffer) || (len < 0))
-      return -1;
-
-    if (input->isEnd())
-      return 0;
-
-    unsigned long tmpNumBytesRead = 0;
-    const unsigned char *tmpBuffer = input->read(len, tmpNumBytesRead);
-
-    if (tmpBuffer && tmpNumBytesRead)
-      memcpy(buffer, tmpBuffer, tmpNumBytesRead);
-    return tmpNumBytesRead;
-  }
-
-#ifdef DEBUG
-  static void vsdxReaderErrorFunc(void *, const char *message, xmlParserSeverities severity, xmlTextReaderLocatorPtr)
-#else
-  static void vsdxReaderErrorFunc(void *, const char *, xmlParserSeverities severity, xmlTextReaderLocatorPtr)
-#endif
-  {
-    switch (severity)
-    {
-    case XML_PARSER_SEVERITY_VALIDITY_WARNING:
-      VSD_DEBUG_MSG(("Found xml parser severity validity warning %s\n", message));
-      break;
-    case XML_PARSER_SEVERITY_VALIDITY_ERROR:
-      VSD_DEBUG_MSG(("Found xml parser severity validity error %s\n", message));
-      break;
-    case XML_PARSER_SEVERITY_WARNING:
-      VSD_DEBUG_MSG(("Found xml parser severity warning %s\n", message));
-      break;
-    case XML_PARSER_SEVERITY_ERROR:
-      VSD_DEBUG_MSG(("Found xml parser severity error %s\n", message));
-      break;
-    default:
-      break;
-    }
-  }
-
-} // extern "C"
-
-} // anonymous namespace
-
-// xmlTextReader helper function
-
-xmlTextReaderPtr libvisio::xmlReaderForStream(librevenge::RVNGInputStream *input, const char *URL, const char *encoding, int options)
-{
-  xmlTextReaderPtr reader = xmlReaderForIO(vsdxInputReadFunc, vsdxInputCloseFunc, (void *)input, URL, encoding, options);
-  xmlTextReaderSetErrorHandler(reader, vsdxReaderErrorFunc, 0);
-  return reader;
-}
-
-libvisio::Colour libvisio::xmlStringToColour(const xmlChar *s)
-{
-  if (xmlStrEqual(s, BAD_CAST("Themed")))
-    return libvisio::Colour();
-  std::string str((const char *)s);
-  if (str[0] == '#')
-  {
-    if (str.length() != 7)
-    {
-      VSD_DEBUG_MSG(("Throwing XmlParserException\n"));
-      throw XmlParserException();
-    }
-    else
-      str.erase(str.begin());
-  }
-  else
-  {
-    if (str.length() != 6)
-    {
-      VSD_DEBUG_MSG(("Throwing XmlParserException\n"));
-      throw XmlParserException();
-    }
-  }
-
-  std::istringstream istr(str);
-  unsigned val = 0;
-  istr >> std::hex >> val;
-
-  return Colour((val & 0xff0000) >> 16, (val & 0xff00) >> 8, val & 0xff, 0);
-}
-
-long libvisio::xmlStringToLong(const xmlChar *s)
-{
-  using boost::lexical_cast;
-  using boost::bad_lexical_cast;
-  if (xmlStrEqual(s, BAD_CAST("Themed")))
-    return 0;
-
-  try
-  {
-    return boost::lexical_cast<long, const char *>((const char *)s);
-  }
-  catch (const boost::bad_lexical_cast &)
-  {
-    VSD_DEBUG_MSG(("Throwing XmlParserException\n"));
-    throw XmlParserException();
-  }
-  return 0;
-}
-
-double libvisio::xmlStringToDouble(const xmlChar *s) try
-{
-  if (xmlStrEqual(s, BAD_CAST("Themed")))
-    return 0.0;
-
-  return boost::lexical_cast<double, const char *>((const char *)s);
-}
-catch (const boost::bad_lexical_cast &)
-{
-  VSD_DEBUG_MSG(("Throwing XmlParserException\n"));
-  throw XmlParserException();
-}
-
-bool libvisio::xmlStringToBool(const xmlChar *s)
-{
-  if (xmlStrEqual(s, BAD_CAST("Themed")))
-    return 0;
-
-  bool value = false;
-  if (xmlStrEqual(s, BAD_CAST("true")) || xmlStrEqual(s, BAD_CAST("1")))
-    value = true;
-  else if (xmlStrEqual(s, BAD_CAST("false")) || xmlStrEqual(s, BAD_CAST("0")))
-    value = false;
-  else
-  {
-    VSD_DEBUG_MSG(("Throwing XmlParserException\n"));
-    throw XmlParserException();
-  }
-  return value;
-
-}
+#include "libvisio_xml.h"
 
 // VSDXRelationship
 
@@ -216,20 +66,20 @@ void libvisio::VSDXRelationship::rebaseTarget(const char *baseDir)
   boost::split(segments, target, boost::is_any_of("/\\"));
   std::vector<std::string> normalizedSegments;
 
-  for (unsigned i = 0; i < segments.size(); ++i)
+  for (auto &segment : segments)
   {
-    if (segments[i] == "..")
+    if (segment == "..")
       normalizedSegments.pop_back();
-    else if (segments[i] != "." && !segments[i].empty())
-      normalizedSegments.push_back(segments[i]);
+    else if (segment != "." && !segment.empty())
+      normalizedSegments.push_back(segment);
   }
 
   target.clear();
-  for (unsigned j = 0; j < normalizedSegments.size(); ++j)
+  for (const auto &normalizedSegment : normalizedSegments)
   {
     if (!target.empty())
       target.append("/");
-    target.append(normalizedSegments[j]);
+    target.append(normalizedSegment);
   }
 
   // VSD_DEBUG_MSG(("VSDXRelationship::rebaseTarget %s -> %s\n", m_target.c_str(), target.c_str()));
@@ -244,24 +94,26 @@ libvisio::VSDXRelationships::VSDXRelationships(librevenge::RVNGInputStream *inpu
 {
   if (input)
   {
-    xmlTextReaderPtr reader = xmlReaderForStream(input, 0, 0, XML_PARSE_NOBLANKS|XML_PARSE_NOENT|XML_PARSE_NONET|XML_PARSE_RECOVER);
+    const std::shared_ptr<xmlTextReader> reader(
+      xmlReaderForStream(input, nullptr, nullptr, XML_PARSE_NOBLANKS|XML_PARSE_NOENT|XML_PARSE_NONET|XML_PARSE_RECOVER),
+      xmlFreeTextReader);
     if (reader)
     {
       bool inRelationships = false;
-      int ret = xmlTextReaderRead(reader);
+      int ret = xmlTextReaderRead(reader.get());
       while (ret == 1)
       {
-        const xmlChar *name = xmlTextReaderConstName(reader);
+        const xmlChar *name = xmlTextReaderConstName(reader.get());
         if (name)
         {
           if (xmlStrEqual(name, BAD_CAST("Relationships")))
           {
-            if (xmlTextReaderNodeType(reader) == 1)
+            if (xmlTextReaderNodeType(reader.get()) == 1)
             {
               // VSD_DEBUG_MSG(("Relationships ON\n"));
               inRelationships = true;
             }
-            else if (xmlTextReaderNodeType(reader) == 15)
+            else if (xmlTextReaderNodeType(reader.get()) == 15)
             {
               // VSD_DEBUG_MSG(("Relationships OFF\n"));
               inRelationships = false;
@@ -271,15 +123,14 @@ libvisio::VSDXRelationships::VSDXRelationships(librevenge::RVNGInputStream *inpu
           {
             if (inRelationships)
             {
-              VSDXRelationship relationship(reader);
+              VSDXRelationship relationship(reader.get());
               m_relsByType[relationship.getType()] = relationship;
               m_relsById[relationship.getId()] = relationship;
             }
           }
         }
-        ret = xmlTextReaderRead(reader);
+        ret = xmlTextReaderRead(reader.get());
       }
-      xmlFreeTextReader(reader);
     }
   }
 }
@@ -300,21 +151,21 @@ void libvisio::VSDXRelationships::rebaseTargets(const char *baseDir)
 const libvisio::VSDXRelationship *libvisio::VSDXRelationships::getRelationshipByType(const char *type) const
 {
   if (!type)
-    return 0;
+    return nullptr;
   std::map<std::string, libvisio::VSDXRelationship>::const_iterator iter = m_relsByType.find(type);
   if (iter != m_relsByType.end())
     return &(iter->second);
-  return 0;
+  return nullptr;
 }
 
 const libvisio::VSDXRelationship *libvisio::VSDXRelationships::getRelationshipById(const char *id) const
 {
   if (!id)
-    return 0;
+    return nullptr;
   std::map<std::string, libvisio::VSDXRelationship>::const_iterator iter = m_relsById.find(id);
   if (iter != m_relsById.end())
     return &(iter->second);
-  return 0;
+  return nullptr;
 }
 
 /* vim:set shiftwidth=2 softtabstop=2 expandtab: */

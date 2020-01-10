@@ -10,63 +10,50 @@
 #ifndef __LIBVISIO_UTILS_H__
 #define __LIBVISIO_UTILS_H__
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include <memory>
+
+#include <boost/cstdint.hpp>
+
 #include "VSDTypes.h"
 
-#ifdef _MSC_VER
-
-typedef unsigned char uint8_t;
-typedef unsigned short uint16_t;
-typedef short int16_t;
-typedef unsigned uint32_t;
-typedef int int32_t;
-typedef unsigned __int64 uint64_t;
-
-#else /* !defined _MSC_VER */
-
-#ifdef HAVE_CONFIG_H
-
-#include <config.h>
-
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
-
-#ifdef HAVE_INTTYPES_H
-#include <inttypes.h>
-#endif
-
-#else /* !defined HAVE_CONFIG_H */
-
-#include <stdint.h>
-#include <inttypes.h>
-
-#endif /* HAVE_CONFIG_H */
-
-#endif /* _MSC_VER */
+#define VSD_EPSILON 1E-6
+#define VSD_ALMOST_ZERO(m) (fabs(m) <= VSD_EPSILON)
+#define VSD_APPROX_EQUAL(x, y) VSD_ALMOST_ZERO((x) - (y))
 
 #include <librevenge/librevenge.h>
 #include <librevenge-stream/librevenge-stream.h>
 #include <unicode/utypes.h>
 
-// debug message includes source file and line number
-//#define VERBOSE_DEBUG 1
+#if defined(HAVE_FUNC_ATTRIBUTE_FORMAT)
+#define VSD_ATTRIBUTE_PRINTF(fmt, arg) __attribute__((format(printf, fmt, arg)))
+#else
+#define VSD_ATTRIBUTE_PRINTF(fmt, arg)
+#endif
 
 // do nothing with debug messages in a release compile
 #ifdef DEBUG
-#ifdef VERBOSE_DEBUG
-#define VSD_DEBUG_MSG(M) libvisio::debugPrint("%15s:%5d: ", __FILE__, __LINE__); libvisio::debugPrint M
-#define VSD_DEBUG(M) M
-#else
 #define VSD_DEBUG_MSG(M) libvisio::debugPrint M
 #define VSD_DEBUG(M) M
-#endif
 #else
 #define VSD_DEBUG_MSG(M)
 #define VSD_DEBUG(M)
 #endif
 
+#define VSD_NUM_ELEMENTS(array) (sizeof(array)/sizeof((array)[0]))
+
 namespace libvisio
 {
+
+typedef std::shared_ptr<librevenge::RVNGInputStream> RVNGInputStreamPtr_t;
+
+struct VSDDummyDeleter
+{
+  void operator()(void *) {}
+};
 
 uint8_t readU8(librevenge::RVNGInputStream *input);
 uint16_t readU16(librevenge::RVNGInputStream *input);
@@ -79,9 +66,11 @@ double readDouble(librevenge::RVNGInputStream *input);
 
 const librevenge::RVNGString getColourString(const Colour &c);
 
+unsigned long getRemainingLength(librevenge::RVNGInputStream *input);
+
 void appendUCS4(librevenge::RVNGString &text, UChar32 ucs4Character);
 
-void debugPrint(const char *format, ...);
+void debugPrint(const char *format, ...) VSD_ATTRIBUTE_PRINTF(1, 2);
 
 class EndOfStreamException
 {

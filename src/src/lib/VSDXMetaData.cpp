@@ -10,6 +10,9 @@
 #include "VSDXMetaData.h"
 #include "VSDXMLTokenMap.h"
 #include "libvisio_utils.h"
+#include "libvisio_xml.h"
+#include <memory>
+#include <string>
 
 libvisio::VSDXMetaData::VSDXMetaData()
   : m_metaData()
@@ -82,11 +85,31 @@ void libvisio::VSDXMetaData::readCoreProperties(xmlTextReaderPtr reader)
     case XML_CP_LASTMODIFIEDBY:
       m_metaData.insert("dc:creator", readString(reader, XML_CP_LASTMODIFIEDBY));
       break;
+    case XML_DC_LANGUAGE:
+      m_metaData.insert("dc:language", readString(reader, XML_DC_LANGUAGE));
+      break;
+    case XML_CP_CATEGORY:
+      m_metaData.insert("librevenge:category", readString(reader, XML_CP_CATEGORY));
+      break;
+    case XML_COMPANY:
+      m_metaData.insert("librevenge:company", readString(reader, XML_COMPANY));
+      break;
+    case XML_TEMPLATE:
+    {
+      librevenge::RVNGString templateHrefRVNG = readString(reader, XML_TEMPLATE);
+      std::string templateHref(templateHrefRVNG.cstr());
+      size_t found = templateHref.find_last_of("/\\");
+      if (found != std::string::npos)
+        templateHrefRVNG = librevenge::RVNGString(templateHref.substr(found+1).c_str());
+      m_metaData.insert("librevenge:template", templateHrefRVNG);
+      break;
+    }
     default:
       break;
     }
   }
-  while ((XML_CP_COREPROPERTIES != tokenId || XML_READER_TYPE_END_ELEMENT != tokenType) && 1 == ret);
+  while (((XML_CP_COREPROPERTIES != tokenId && XML_PROPERTIES != tokenId) || XML_READER_TYPE_END_ELEMENT != tokenType)
+         && 1 == ret);
 }
 
 bool libvisio::VSDXMetaData::parse(librevenge::RVNGInputStream *input)
@@ -94,35 +117,39 @@ bool libvisio::VSDXMetaData::parse(librevenge::RVNGInputStream *input)
   if (!input)
     return false;
 
-  xmlTextReaderPtr reader = xmlReaderForStream(input, 0, 0, XML_PARSE_NOBLANKS|XML_PARSE_NOENT|XML_PARSE_NONET);
+  XMLErrorWatcher watcher;
+
+  const std::shared_ptr<xmlTextReader> reader(
+    xmlReaderForStream(input, nullptr, nullptr, XML_PARSE_NOBLANKS|XML_PARSE_NOENT|XML_PARSE_NONET, &watcher),
+    xmlFreeTextReader);
   if (!reader)
     return false;
 
   try
   {
-    int ret = xmlTextReaderRead(reader);
-    while (1 == ret)
+    int ret = xmlTextReaderRead(reader.get());
+    while (1 == ret && !watcher.isError())
     {
-      int tokenId = getElementToken(reader);
+      int tokenId = getElementToken(reader.get());
       switch (tokenId)
       {
       case XML_CP_COREPROPERTIES:
-        readCoreProperties(reader);
+      case XML_PROPERTIES:
+        readCoreProperties(reader.get());
         break;
       default:
         break;
 
       }
-      ret = xmlTextReaderRead(reader);
+      ret = xmlTextReaderRead(reader.get());
     }
   }
   catch (...)
   {
-    xmlFreeTextReader(reader);
     return false;
   }
-  xmlFreeTextReader(reader);
-  return true;
+
+  return !watcher.isError();
 }
 
 int libvisio::VSDXMetaData::getElementToken(xmlTextReaderPtr reader)

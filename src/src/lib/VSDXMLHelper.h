@@ -11,30 +11,15 @@
 #define __VSDXMLHELPER_H__
 
 #include <map>
+#include <memory>
 #include <string>
+
 #include <librevenge-stream/librevenge-stream.h>
 #include <libxml/xmlreader.h>
 #include "VSDTypes.h"
 
 namespace libvisio
 {
-
-// create an xmlTextReader pointer from a librevenge::RVNGInputStream pointer
-// needs to be freed using xmlTextReaderFree function.
-
-xmlTextReaderPtr xmlReaderForStream(librevenge::RVNGInputStream *input,
-                                    const char *URL,
-                                    const char *encoding,
-                                    int options);
-
-Colour xmlStringToColour(const xmlChar *s);
-
-long xmlStringToLong(const xmlChar *s);
-
-double xmlStringToDouble(const xmlChar *s);
-
-bool xmlStringToBool(const xmlChar *s);
-
 
 class VSDCollector;
 

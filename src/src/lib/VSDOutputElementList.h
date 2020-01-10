@@ -11,6 +11,7 @@
 #define __VSDOUTPUTELEMENTLIST_H__
 
 #include <map>
+#include <memory>
 #include <list>
 #include <vector>
 #include <librevenge/librevenge.h>
@@ -26,19 +27,25 @@ public:
   VSDOutputElementList();
   VSDOutputElementList(const VSDOutputElementList &elementList);
   VSDOutputElementList &operator=(const VSDOutputElementList &elementList);
-  virtual ~VSDOutputElementList();
+  ~VSDOutputElementList();
   void append(const VSDOutputElementList &elementList);
   void draw(librevenge::RVNGDrawingInterface *painter) const;
   void addStyle(const librevenge::RVNGPropertyList &propList);
   void addPath(const librevenge::RVNGPropertyList &propList);
   void addGraphicObject(const librevenge::RVNGPropertyList &propList);
   void addStartTextObject(const librevenge::RVNGPropertyList &propList);
-  void addOpenParagraph(const librevenge::RVNGPropertyList &propList);
-  void addOpenSpan(const librevenge::RVNGPropertyList &propList);
-  void addInsertText(const librevenge::RVNGString &text);
-  void addCloseSpan();
-  void addCloseParagraph();
   void addEndTextObject();
+  void addOpenUnorderedListLevel(const librevenge::RVNGPropertyList &propList);
+  void addCloseUnorderedListLevel();
+  void addOpenListElement(const librevenge::RVNGPropertyList &propList);
+  void addCloseListElement();
+  void addOpenParagraph(const librevenge::RVNGPropertyList &propList);
+  void addCloseParagraph();
+  void addOpenSpan(const librevenge::RVNGPropertyList &propList);
+  void addCloseSpan();
+  void addInsertText(const librevenge::RVNGString &text);
+  void addInsertLineBreak();
+  void addInsertTab();
   void addStartLayer(const librevenge::RVNGPropertyList &propList);
   void addEndLayer();
   bool empty() const
@@ -46,7 +53,7 @@ public:
     return m_elements.empty();
   }
 private:
-  std::vector<VSDOutputElement *> m_elements;
+  std::vector<std::unique_ptr<VSDOutputElement>> m_elements;
 };
 
 

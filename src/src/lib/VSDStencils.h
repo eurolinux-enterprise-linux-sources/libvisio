@@ -42,12 +42,12 @@ public:
   VSDOptionalFillStyle m_fillStyle;
   VSDOptionalTextBlockStyle m_textBlockStyle;
   VSDOptionalCharStyle m_charStyle;
-  VSDOptionalThemeReference m_themeRef;
   VSDCharacterList m_charList;
   VSDOptionalParaStyle m_paraStyle;
   VSDParagraphList m_paraList;
+  std::map<unsigned, VSDTabSet> m_tabSets;
   librevenge::RVNGBinaryData m_text;
-  std::map< unsigned, VSDName > m_names;
+  std::map<unsigned, VSDName> m_names;
   TextFormat m_textFormat;
   std::map<unsigned, NURBSData> m_nurbsData;
   std::map<unsigned, PolylineData> m_polylineData;
@@ -55,6 +55,7 @@ public:
   XForm *m_txtxform;
   XForm1D *m_xform1d;
   VSDMisc m_misc;
+  VSDName m_layerMem;
 };
 
 class VSDStencil

@@ -7,7 +7,7 @@ AC_PREREQ([2.65])
 # ====================
 m4_define([libvisio_version_major],[0])
 m4_define([libvisio_version_minor],[1])
-m4_define([libvisio_version_micro],[1])
+m4_define([libvisio_version_micro],[6])
 m4_define([libvisio_version],[libvisio_version_major.libvisio_version_minor.libvisio_version_micro])
 
 # =============
@@ -38,21 +38,14 @@ PKG_PROG_PKG_CONFIG([0.20])
 AC_PROG_EGREP
 AC_PROG_SED
 
+AX_CXX_COMPILE_STDCXX_11
+AX_GCC_FUNC_ATTRIBUTE([format])
+
 dnl ===================================================================
 dnl Check for gperf
 dnl ===================================================================
-AC_ARG_VAR(GPERF, [Setting this variable will override the gperf detection])
-AC_PATH_PROG(GPERF, gperf)
-if test -z "$GPERF"; then
-    AC_MSG_ERROR([gperf not found but needed. Install it.])
-fi
-AC_MSG_CHECKING([gperf version])
-if test "`$GPERF --version | $EGREP ^GNU\ gperf | $AWK '{ print $3 }' | cut -d. -f1`" -ge "3"; then
-    AC_MSG_RESULT([OK])
-else
-    AC_MSG_ERROR([too old, you need at least 3.0.0])
-fi
-AC_SUBST(GPERF)
+AM_MISSING_PROG([GPERF], [gperf])
+AM_MISSING_PROG([PERL], [perl])
 
 # ====================
 # Find additional apps
@@ -68,35 +61,9 @@ PKG_CHECK_MODULES([LIBXML],[
 # ========
 # Find icu
 # ========
-AS_IF([test "${ICU_CFLAGS+set}" = set],[
-	ICU_CFLAGS_overriden=yes],[
-	ICU_CFLAGS_overriden=no])
-PKG_CHECK_MODULES([ICU],[icu-i18n],[
-	AS_IF([test "${ICU_CFLAGS_overriden}" = no], [
-		ICU_CFLAGS="${ICU_CFLAGS} `${PKG_CONFIG} icu-i18n --variable=CXXFLAGS`"])
-	], [
-	AC_PATH_PROG([ICU_CONFIG],[icu-config])
-	AC_MSG_CHECKING([ICU installation])
-	AS_IF([${ICU_CONFIG} --cflags >/dev/null 2>&1],[
-		ICU_CFLAGS=`${ICU_CONFIG} --cppflags-searchpath --cxxflags`
-		ICU_LIBS=`${ICU_CONFIG} --ldflags`
-		AC_MSG_RESULT([found])],[
-		AC_MSG_ERROR([libicu config program icu-config not found])])]
-)
+PKG_CHECK_MODULES([ICU], [icu-uc])
 AC_SUBST(ICU_CFLAGS)
 AC_SUBST(ICU_LIBS)
-
-# =========
-# Find zlib
-# =========
-PKG_CHECK_MODULES([ZLIB],[zlib],[],[
-    AC_CHECK_HEADER(zlib.h, [ZLIB_CFLAGS=],
-        [AC_MSG_ERROR(zlib.h not found. install zlib)], [])
-    AC_CHECK_LIB(z, inflate, [ ZLIB_LIBS=-lz ],
-        [AC_MSG_ERROR(zlib not found or functional)], [])
-])
-AC_SUBST(ZLIB_CFLAGS)
-AC_SUBST(ZLIB_LIBS)
 
 # ===========================
 # Find required boost headers
@@ -104,9 +71,12 @@ AC_SUBST(ZLIB_LIBS)
 
 AC_CHECK_HEADERS(
 	boost/algorithm/string.hpp \
+	boost/cstdint.hpp \
 	boost/lexical_cast.hpp \
 	boost/optional.hpp \
-	boost/spirit/include/classic.hpp,
+	boost/phoenix.hpp \
+	boost/spirit/include/qi.hpp \
+        ,
 	[],
 	[AC_MSG_ERROR(Required boost headers not found. install boost >= 1.36)],
 	[]
@@ -120,19 +90,52 @@ AC_ARG_ENABLE([tools],
 	[enable_tools="$enableval"],
 	[enable_tools=yes]
 )
-AS_IF([test "x$enable_tools" = "xyes"], [
-	PKG_CHECK_MODULES([REVENGE_GENERATORS],[
-		librevenge-generators-0.0
-	])
+AM_CONDITIONAL([BUILD_TOOLS], [test "x$enable_tools" = "xyes"])
+AS_IF([test "x$enable_tools" = "xyes"], [need_stream=yes; need_generators=yes])
+
+# =======
+# Fuzzers
+# =======
+AC_ARG_ENABLE([fuzzers],
+	[AS_HELP_STRING([--enable-fuzzers], [Build fuzzer(s)])],
+	[enable_fuzzers="$enableval"],
+	[enable_fuzzers=no]
+)
+AM_CONDITIONAL(BUILD_FUZZERS, [test "x$enable_fuzzers" = "xyes"])
+AS_IF([test "x$enable_fuzzers" = "xyes"], [need_stream=yes; need_generators=yes])
+
+# ==========
+# Unit tests
+# ==========
+AC_ARG_ENABLE([tests],
+    [AS_HELP_STRING([--enable-tests], [Build and run unit tests])],
+    [enable_tests="$enableval"],
+    [enable_tests=yes]
+)
+
+AS_IF([test "x$enable_tests" = "xyes"], [
+    PKG_CHECK_MODULES([CPPUNIT], [cppunit])
+], [])
+AC_SUBST([CPPUNIT_CFLAGS])
+AC_SUBST([CPPUNIT_LIBS])
+AM_CONDITIONAL([ENABLE_TESTS], [test "x$enable_tests" = "xyes"])
+AS_IF([test "x$enable_tests" = "xyes"], [need_stream=yes])
+
+AS_IF([test "x$need_stream" = "xyes"], [
 	PKG_CHECK_MODULES([REVENGE_STREAM],[
 		librevenge-stream-0.0
 	])
 ])
-AC_SUBST([REVENGE_GENERATORS_CFLAGS])
-AC_SUBST([REVENGE_GENERATORS_LIBS])
 AC_SUBST([REVENGE_STREAM_CFLAGS])
 AC_SUBST([REVENGE_STREAM_LIBS])
-AM_CONDITIONAL(BUILD_TOOLS, [test "x$enable_tools" = "xyes"])
+
+AS_IF([test "x$need_generators" = "xyes"], [
+	PKG_CHECK_MODULES([REVENGE_GENERATORS],[
+		librevenge-generators-0.0
+	])
+])
+AC_SUBST([REVENGE_GENERATORS_CFLAGS])
+AC_SUBST([REVENGE_GENERATORS_LIBS])
 
 # =================================
 # Libtool/Version Makefile settings
@@ -193,7 +196,7 @@ AS_CASE([$host],
 AC_MSG_RESULT([$platform_win32])
 AM_CONDITIONAL([PLATFORM_WIN32], [test "x$platform_win32" = "xyes"])
 
-AS_IF([test $platform_win32 == yes],
+AS_IF([test $platform_win32 = yes],
     [],
     [
         AC_MSG_CHECKING([for -fvisibility=hidden compiler flag])
@@ -216,7 +219,7 @@ AS_IF([test $platform_win32 == yes],
 # Check for cflags
 # ================
 AC_ARG_ENABLE([werror],
-	[AS_HELP_STRING([--disable-werror], [Treat all warnings as errors, useful for development])],
+	[AS_HELP_STRING([--enable-werror], [Treat all warnings as errors, useful for development])],
 	[enable_werror="$enableval"],
 	[enable_werror=no]
 )
@@ -225,7 +228,7 @@ AS_IF([test x"$enable_werror" != "xno"], [
 	CXXFLAGS="$CXXFLAGS -Werror"
 ])
 AC_ARG_ENABLE([weffc],
-	[AS_HELP_STRING([--disable-weffc], [ Disable -Weffc++ warnings, usefull when using an old version of gcc or of boost])],
+	[AS_HELP_STRING([--disable-weffc], [ Disable -Weffc++ warnings, useful when using an old version of gcc or of boost])],
 	[enable_weffc="$enableval"],
 	[enable_weffc=yes]
 )
@@ -255,37 +258,35 @@ AS_IF([test "x$native_win32" = "xyes"], [
 			AC_MSG_WARN([produced libraries might be incompatible with MSVC-compiled code])
 		])
 	])
+])
+
+AS_IF([test x"$GCC" = xyes], [
+	# Be tough with warnings and produce less careless code
 	CFLAGS="$CFLAGS -Wall -Wextra -pedantic"
-		CXXFLAGS="$CXXFLAGS -Wall -Wextra -pedantic -Wshadow -Wunused-variable"
-		AS_IF([test x"$enable_weffc" != "xno"], [
-			CXXFLAGS="$CXXFLAGS -Weffc++"
-		])
-		AS_IF([test x"$enable_wparanoic" != "xno"], [
-			CXXFLAGS="$CXXFLAGS -Wcast-align -Wcast-qual -Wchar-subscripts"
-			CXXFLAGS="$CXXFLAGS -Wcomment -Wconversion -Wdisabled-optimization"
-			CXXFLAGS="$CXXFLAGS -Wfloat-equal -Wformat -Wformat=2"
-			CXXFLAGS="$CXXFLAGS -Wformat-nonliteral -Wformat-security"
-			CXXFLAGS="$CXXFLAGS -Wformat-y2k -Wimport -Winit-self -Winvalid-pch"
-			CXXFLAGS="$CXXFLAGS -Wmissing-braces -Wmissing-field-initializers"
-			CXXFLAGS="$CXXFLAGS -Wmissing-format-attribute -Wmissing-include-dirs"
-			CXXFLAGS="$CXXFLAGS -Wmissing-noreturn -Wpacked -Wparentheses"
-			CXXFLAGS="$CXXFLAGS -Wpointer-arith -Wredundant-decls -Wreturn-type"
-			CXXFLAGS="$CXXFLAGS -Wsequence-point -Wsign-compare -Wstrict-aliasing"
-			CXXFLAGS="$CXXFLAGS -Wstrict-aliasing=2 -Wswitch -Wswitch-default"
-			CXXFLAGS="$CXXFLAGS -Wswitch-enum -Wtrigraphs -Wunknown-pragmas -Wunused"
-			CXXFLAGS="$CXXFLAGS -Wunused-function -Wunused-label -Wunused-parameter"
-			CXXFLAGS="$CXXFLAGS -Wunused-value -Wvariadic-macros"
-			CXXFLAGS="$CXXFLAGS -Wvolatile-register-var -Wwrite-strings"
-		])
-], [
-	AS_IF([test x"$GCC" = xyes], [
-		# Be tough with warnings and produce less careless code
-		CFLAGS="$CFLAGS -Wall -Wextra -pedantic"
-		CXXFLAGS="$CXXFLAGS -Wall -Wextra -Wshadow -pedantic"
+	CXXFLAGS="$CXXFLAGS -Wall -Wextra -pedantic -Wshadow -Wunused-variable"
+	AS_IF([test x"$enable_weffc" != "xno"], [
+		CXXFLAGS="$CXXFLAGS -Weffc++"
+	])
+	AS_IF([test x"$enable_wparanoic" != "xno"], [
+		CXXFLAGS="$CXXFLAGS -Wcast-align -Wcast-qual -Wchar-subscripts"
+		CXXFLAGS="$CXXFLAGS -Wcomment -Wconversion -Wdisabled-optimization"
+		CXXFLAGS="$CXXFLAGS -Wfloat-equal -Wformat -Wformat=2"
+		CXXFLAGS="$CXXFLAGS -Wformat-nonliteral -Wformat-security"
+		CXXFLAGS="$CXXFLAGS -Wformat-y2k -Wimport -Winit-self -Winvalid-pch"
+		CXXFLAGS="$CXXFLAGS -Wmissing-braces -Wmissing-field-initializers"
+		CXXFLAGS="$CXXFLAGS -Wmissing-format-attribute -Wmissing-include-dirs"
+		CXXFLAGS="$CXXFLAGS -Wmissing-noreturn -Wpacked -Wparentheses"
+		CXXFLAGS="$CXXFLAGS -Wpointer-arith -Wredundant-decls -Wreturn-type"
+		CXXFLAGS="$CXXFLAGS -Wsequence-point -Wsign-compare -Wstrict-aliasing"
+		CXXFLAGS="$CXXFLAGS -Wstrict-aliasing=2 -Wswitch -Wswitch-default"
+		CXXFLAGS="$CXXFLAGS -Wswitch-enum -Wtrigraphs -Wunknown-pragmas -Wunused"
+		CXXFLAGS="$CXXFLAGS -Wunused-function -Wunused-label -Wunused-parameter"
+		CXXFLAGS="$CXXFLAGS -Wunused-value -Wvariadic-macros"
+		CXXFLAGS="$CXXFLAGS -Wvolatile-register-var -Wwrite-strings"
 	])
 ])
-LIBVISIO_CXXFLAGS="${REVENGE_CFLAGS} ${LIBXML_CFLAGS} ${ZLIB_CFLAGS} ${ICU_CFLAGS}"
-LIBVISIO_LIBS="${REVENGE_LIBS} ${LIBXML_LIBS} ${ZLIB_LIBS} ${ICU_LIBS}"
+LIBVISIO_CXXFLAGS="${REVENGE_CFLAGS} ${LIBXML_CFLAGS} ${ICU_CFLAGS}"
+LIBVISIO_LIBS="${REVENGE_LIBS} ${LIBXML_LIBS} ${ICU_LIBS}"
 AC_SUBST(LIBVISIO_CXXFLAGS)
 AC_SUBST(LIBVISIO_LIBS)
 
@@ -305,21 +306,6 @@ AS_IF([test "x$enable_debug" = "xyes"], [
 	DEBUG_CXXFLAGS="-DNDEBUG"
 ])
 AC_SUBST(DEBUG_CXXFLAGS)
-
-# ==========
-# Unit tests
-# ==========
-AC_ARG_ENABLE([tests],
-    [AS_HELP_STRING([--enable-tests], [Build and run unit tests])],
-    [enable_tests="$enableval"],
-    [enable_tests=yes]
-)
-AS_IF([test "x$enable_tests" = "xyes"], [
-    PKG_CHECK_MODULES([CPPUNIT], [cppunit])
-], [])
-AC_SUBST([CPPUNIT_CFLAGS])
-AC_SUBST([CPPUNIT_LIBS])
-AM_CONDITIONAL([ENABLE_TESTS], [test "x$enable_tests" = "xyes"])
 
 # =============
 # Documentation
@@ -355,6 +341,7 @@ src/conv/svg/vss2xhtml.rc
 src/conv/text/Makefile
 src/conv/text/vsd2text.rc
 src/conv/text/vss2text.rc
+src/fuzz/Makefile
 src/lib/Makefile
 src/lib/libvisio.rc
 src/test/Makefile
@@ -376,8 +363,11 @@ AC_MSG_NOTICE([
 Build configuration:
 	debug:           ${enable_debug}
 	docs:            ${build_docs}
+	fuzzers:         ${enable_fuzzers}
 	tests:           ${enable_tests}
 	tools:           ${enable_tools}
 	werror:          ${enable_werror}
+	weffc:           ${enable_weffc}
+	wparanoic:       ${enable_wparanoic}
 ==============================================================================
 ])

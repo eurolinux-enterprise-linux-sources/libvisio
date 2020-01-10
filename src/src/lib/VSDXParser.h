@@ -25,12 +25,14 @@ class VSDXParser : public VSDXMLParserBase
   using VSDXMLParserBase::readDoubleData;
   using VSDXMLParserBase::readBoolData;
   using VSDXMLParserBase::readLongData;
+  using VSDXMLParserBase::readStringData;
+
 
 public:
   explicit VSDXParser(librevenge::RVNGInputStream *input, librevenge::RVNGDrawingInterface *painter);
-  virtual ~VSDXParser();
-  bool parseMain();
-  bool extractStencils();
+  ~VSDXParser() override;
+  bool parseMain() override;
+  bool extractStencils() override;
 
 private:
   VSDXParser();
@@ -39,10 +41,10 @@ private:
 
   // Helper functions
 
-  xmlChar *readStringData(xmlTextReaderPtr reader);
+  xmlChar *readStringData(xmlTextReaderPtr reader) override;
 
-  int getElementToken(xmlTextReaderPtr reader);
-  int getElementDepth(xmlTextReaderPtr reader);
+  int getElementToken(xmlTextReaderPtr reader) override;
+  int getElementDepth(xmlTextReaderPtr reader) override;
 
   int skipSection(xmlTextReaderPtr reader);
 
@@ -54,7 +56,7 @@ private:
   bool parsePages(librevenge::RVNGInputStream *input, const char *name);
   bool parsePage(librevenge::RVNGInputStream *input, const char *name);
   bool parseTheme(librevenge::RVNGInputStream *input, const char *name);
-  bool parseMetaData(librevenge::RVNGInputStream *input, const char *name);
+  void parseMetaData(librevenge::RVNGInputStream *input, VSDXRelationships &rels);
   void processXmlDocument(librevenge::RVNGInputStream *input, VSDXRelationships &rels);
   void processXmlNode(xmlTextReaderPtr reader);
 
@@ -68,11 +70,14 @@ private:
 
   void readShapeProperties(xmlTextReaderPtr reader);
 
-  void getBinaryData(xmlTextReaderPtr reader);
+  void getBinaryData(xmlTextReaderPtr reader) override;
 
+  void readLayer(xmlTextReaderPtr reader);
   void readParagraph(xmlTextReaderPtr reader);
   void readCharacter(xmlTextReaderPtr reader);
   void readFonts(xmlTextReaderPtr reader);
+  void readTabs(xmlTextReaderPtr reader);
+  void readTabRow(xmlTextReaderPtr reader);
 
   // Private data
 

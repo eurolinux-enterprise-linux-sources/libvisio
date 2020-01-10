@@ -109,10 +109,31 @@ const librevenge::RVNGString libvisio::getColourString(const Colour &c)
   return sColour;
 }
 
+unsigned long libvisio::getRemainingLength(librevenge::RVNGInputStream *const input)
+{
+  if (!input)
+    throw EndOfStreamException();
+
+  const long begin = input->tell();
+
+  if (input->seek(0, librevenge::RVNG_SEEK_END) != 0)
+  {
+    // librevenge::RVNG_SEEK_END does not work. Use the harder way.
+    while (!input->isEnd())
+      readU8(input);
+  }
+  const long end = input->tell();
+
+  input->seek(begin, librevenge::RVNG_SEEK_SET);
+
+  if (end < begin)
+    throw EndOfStreamException();
+  return static_cast<unsigned long>(end - begin);
+}
+
 void libvisio::appendUCS4(librevenge::RVNGString &text, UChar32 ucs4Character)
 {
   // Convert carriage returns to new line characters
-  // Writerperfect/LibreOffice will replace them by <text:line-break>
   if (ucs4Character == (UChar32) 0x0d || ucs4Character == (UChar32) 0x0e)
     ucs4Character = (UChar32) '\n';
 

@@ -11,6 +11,7 @@
 #define __VSDXMLPARSERBASE_H__
 
 #include <map>
+#include <memory>
 #include <stack>
 #include <string>
 #include <boost/optional.hpp>
@@ -24,6 +25,7 @@ namespace libvisio
 {
 
 class VSDCollector;
+class XMLErrorWatcher;
 
 class VSDXMLParserBase
 {
@@ -37,7 +39,7 @@ protected:
   // Protected data
   VSDCollector *m_collector;
   VSDStencils m_stencils;
-  VSDStencil *m_currentStencil;
+  std::unique_ptr<VSDStencil> m_currentStencil;
   VSDShape m_shape;
   bool m_isStencilStarted;
   unsigned m_currentStencilID;
@@ -59,6 +61,10 @@ protected:
 
   std::map<unsigned, VSDName> m_fonts;
 
+  std::map<unsigned, VSDTabStop> *m_currentTabSet;
+
+  XMLErrorWatcher *m_watcher;
+
   // Helper functions
 
   int readByteData(unsigned char &value, xmlTextReaderPtr reader);
@@ -75,6 +81,8 @@ protected:
   int readExtendedColourData(boost::optional<Colour> &value, xmlTextReaderPtr reader);
   int readNURBSData(boost::optional<NURBSData> &data, xmlTextReaderPtr reader);
   int readPolylineData(boost::optional<PolylineData> &data, xmlTextReaderPtr reader);
+  int readStringData(VSDName &text, xmlTextReaderPtr reader);
+  void readTriggerId(unsigned &id, xmlTextReaderPtr reader);
 
   virtual xmlChar *readStringData(xmlTextReaderPtr reader) = 0;
   unsigned getIX(xmlTextReaderPtr reader);
@@ -108,6 +116,8 @@ protected:
   void readText(xmlTextReaderPtr reader);
   void readCharIX(xmlTextReaderPtr reader);
   void readParaIX(xmlTextReaderPtr reader);
+  void readLayerIX(xmlTextReaderPtr reader);
+  void readLayerMember(xmlTextReaderPtr reader);
 
   void readStyleSheet(xmlTextReaderPtr reader);
   void readPageSheet(xmlTextReaderPtr reader);

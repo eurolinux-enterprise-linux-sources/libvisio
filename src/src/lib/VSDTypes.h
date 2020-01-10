@@ -11,9 +11,9 @@
 #define VSDTYPES_H
 
 #include <vector>
+#include <map>
 #include <librevenge/librevenge.h>
 
-#define FROM_OPTIONAL(t, u) !!t ? t.get() : u
 #define ASSIGN_OPTIONAL(t, u) if(!!t) u = t.get()
 #define MINUS_ONE (unsigned)-1
 
@@ -74,15 +74,15 @@ struct Colour
   Colour(unsigned char red, unsigned char green, unsigned char blue, unsigned char alpha)
     : r(red), g(green), b(blue), a(alpha) {}
   Colour() : r(0), g(0), b(0), a(0) {}
-  inline bool operator==(const Colour &col)
+  inline bool operator==(const Colour &col) const
   {
     return ((r == col.r) && (g == col.g) && (b == col.b) && (a == col.a));
   }
-  inline bool operator!=(const Colour &col)
+  inline bool operator!=(const Colour &col) const
   {
     return !operator==(col);
   }
-  inline bool operator!()
+  inline bool operator!() const
   {
     return (!r && !g && !b && !a);
   }
@@ -187,6 +187,11 @@ public:
   {
     return !m_data.size();
   }
+  void clear()
+  {
+    m_data.clear();
+    m_format = VSD_TEXT_ANSI;
+  }
   librevenge::RVNGBinaryData m_data;
   TextFormat m_format;
 };
@@ -207,6 +212,59 @@ struct VSDMisc
   bool m_hideText;
   VSDMisc() : m_hideText(false) {}
   VSDMisc(const VSDMisc &misc) : m_hideText(misc.m_hideText) {}
+};
+
+struct VSDTabStop
+{
+  double m_position;
+  unsigned char m_alignment;
+  unsigned char m_leader;
+  VSDTabStop() : m_position(0.0), m_alignment(0), m_leader(0) {}
+  VSDTabStop(const VSDTabStop &tabStop) :
+    m_position(tabStop.m_position), m_alignment(tabStop.m_alignment),
+    m_leader(tabStop.m_leader) {}
+};
+
+struct VSDTabSet
+{
+  unsigned m_numChars;
+  std::map<unsigned, VSDTabStop> m_tabStops;
+  VSDTabSet() : m_numChars(0), m_tabStops() {}
+  VSDTabSet(const VSDTabSet &tabSet) :
+    m_numChars(tabSet.m_numChars), m_tabStops(tabSet.m_tabStops) {}
+};
+
+struct VSDBullet
+{
+  librevenge::RVNGString m_bulletStr;
+  librevenge::RVNGString m_bulletFont;
+  double m_bulletFontSize;
+  double m_textPosAfterBullet;
+  VSDBullet()
+    : m_bulletStr(),
+      m_bulletFont(),
+      m_bulletFontSize(0.0),
+      m_textPosAfterBullet(0.0) {}
+  VSDBullet(const VSDBullet &bullet) :
+    m_bulletStr(bullet.m_bulletStr),
+    m_bulletFont(bullet.m_bulletFont),
+    m_bulletFontSize(bullet.m_bulletFontSize),
+    m_textPosAfterBullet(bullet.m_textPosAfterBullet) {}
+  inline bool operator==(const VSDBullet &bullet) const
+  {
+    return ((m_bulletStr == bullet.m_bulletStr) &&
+            (m_bulletFont == bullet.m_bulletFont) &&
+            (m_bulletFontSize == bullet.m_bulletFontSize) &&
+            (m_textPosAfterBullet == bullet.m_textPosAfterBullet));
+  }
+  inline bool operator!=(const VSDBullet &bullet) const
+  {
+    return !operator==(bullet);
+  }
+  inline bool operator!() const
+  {
+    return m_bulletStr.empty();
+  }
 };
 
 } // namespace libvisio

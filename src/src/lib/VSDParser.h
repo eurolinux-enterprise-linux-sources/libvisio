@@ -15,6 +15,7 @@
 #include <vector>
 #include <stack>
 #include <map>
+#include <set>
 #include <librevenge/librevenge.h>
 #include "VSDTypes.h"
 #include "VSDGeometryList.h"
@@ -22,6 +23,7 @@
 #include "VSDCharacterList.h"
 #include "VSDParagraphList.h"
 #include "VSDShapeList.h"
+#include "VSDLayerList.h"
 #include "VSDStencils.h"
 
 namespace libvisio
@@ -45,7 +47,7 @@ struct Pointer
 class VSDParser
 {
 public:
-  explicit VSDParser(librevenge::RVNGInputStream *input, librevenge::RVNGDrawingInterface *painter, librevenge::RVNGInputStream *container = 0);
+  explicit VSDParser(librevenge::RVNGInputStream *input, librevenge::RVNGDrawingInterface *painter, librevenge::RVNGInputStream *container = nullptr);
   virtual ~VSDParser();
   bool parseMain();
   bool extractStencils();
@@ -67,7 +69,7 @@ protected:
   void readInfiniteLine(librevenge::RVNGInputStream *input);
   void readShapeData(librevenge::RVNGInputStream *input);
   void readXFormData(librevenge::RVNGInputStream *input);
-  void readXForm1D(librevenge::RVNGInputStream *input);
+  virtual void readXForm1D(librevenge::RVNGInputStream *input);
   void readTxtXForm(librevenge::RVNGInputStream *input);
   void readShapeId(librevenge::RVNGInputStream *input);
   virtual void readShapeList(librevenge::RVNGInputStream *input);
@@ -85,6 +87,8 @@ protected:
   virtual void readCharIX(librevenge::RVNGInputStream *input);
   virtual void readParaIX(librevenge::RVNGInputStream *input);
   virtual void readTextBlock(librevenge::RVNGInputStream *input);
+  virtual void readTabsDataList(librevenge::RVNGInputStream *input);
+  virtual void readTabsData(librevenge::RVNGInputStream *input);
 
   void readNameList(librevenge::RVNGInputStream *input);
   virtual void readName(librevenge::RVNGInputStream *input);
@@ -109,16 +113,20 @@ protected:
   virtual void readNameIDX(librevenge::RVNGInputStream *input);
   virtual void readNameIDX123(librevenge::RVNGInputStream *input);
 
-  void readMisc(librevenge::RVNGInputStream *input);
+  virtual void readMisc(librevenge::RVNGInputStream *input);
+
+  virtual void readLayerList(librevenge::RVNGInputStream *input);
+  virtual void readLayer(librevenge::RVNGInputStream *input);
+  virtual void readLayerMem(librevenge::RVNGInputStream *input);
 
   // parser of one pass
   bool parseDocument(librevenge::RVNGInputStream *input, unsigned shift);
 
-  bool parseMetaData();
+  void parseMetaData();
 
   // Stream handlers
-  void handleStreams(librevenge::RVNGInputStream *input, unsigned ptrType, unsigned shift, unsigned level);
-  void handleStream(const Pointer &ptr, unsigned idx, unsigned level);
+  void handleStreams(librevenge::RVNGInputStream *input, unsigned ptrType, unsigned shift, unsigned level, std::set<unsigned> &visited);
+  void handleStream(const Pointer &ptr, unsigned idx, unsigned level, std::set<unsigned> &visited);
   void handleChunks(librevenge::RVNGInputStream *input, unsigned level);
   void handleChunk(librevenge::RVNGInputStream *input);
   void handleBlob(librevenge::RVNGInputStream *input, unsigned shift, unsigned level);
@@ -150,6 +158,8 @@ protected:
   unsigned m_currentShapeLevel;
   unsigned m_currentShapeID;
 
+  unsigned m_currentLayerListLevel;
+
   bool m_extractStencils;
   std::vector<Colour> m_colours;
 
@@ -166,6 +176,8 @@ protected:
   std::map<unsigned, VSDName> m_names;
   std::map<unsigned, std::map<unsigned, VSDName> > m_namesMapMap;
   VSDName m_currentPageName;
+
+  std::map<unsigned, VSDTabStop> *m_currentTabSet;
 
 private:
   VSDParser();

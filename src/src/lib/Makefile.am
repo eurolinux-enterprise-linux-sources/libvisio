@@ -4,100 +4,94 @@ else
 version_info = -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)
 endif
 
+noinst_LTLIBRARIES = libvisio-internal.la
 lib_LTLIBRARIES = libvisio-@VSD_MAJOR_VERSION@.@VSD_MINOR_VERSION@.la
-libvisio_@VSD_MAJOR_VERSION@_@VSD_MINOR_VERSION@_includedir = $(includedir)/libvisio-@VSD_MAJOR_VERSION@.@VSD_MINOR_VERSION@/libvisio
-libvisio_@VSD_MAJOR_VERSION@_@VSD_MINOR_VERSION@_include_HEADERS = \
-	$(top_srcdir)/inc/libvisio/libvisio.h \
-	$(top_srcdir)/inc/libvisio/VisioDocument.h
 
 AM_CXXFLAGS = \
 	-DLIBVISIO_BUILD=1 \
 	-I$(top_srcdir)/inc \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_builddir)/src/lib \
+	-DBOOST_ERROR_CODE_HEADER_ONLY \
+	-DBOOST_SPIRIT_USE_PHOENIX_V3 \
+	-DBOOST_SYSTEM_NO_DEPRECATED \
 	$(LIBVISIO_CXXFLAGS) \
 	$(DEBUG_CXXFLAGS)
 
-generated_files = \
-	$(top_builddir)/src/lib/tokens.h \
-	$(top_builddir)/src/lib/tokenhash.h
+BUILT_SOURCES = tokens.h tokenhash.h
 
-libvisio_@VSD_MAJOR_VERSION@_@VSD_MINOR_VERSION@_la_LIBADD  = $(LIBVISIO_LIBS) @LIBVISIO_WIN32_RESOURCE@
-libvisio_@VSD_MAJOR_VERSION@_@VSD_MINOR_VERSION@_la_DEPENDENCIES = @LIBVISIO_WIN32_RESOURCE@
+libvisio_@VSD_MAJOR_VERSION@_@VSD_MINOR_VERSION@_la_LIBADD  = $(LIBVISIO_LIBS) libvisio-internal.la @LIBVISIO_WIN32_RESOURCE@
+libvisio_@VSD_MAJOR_VERSION@_@VSD_MINOR_VERSION@_la_DEPENDENCIES = libvisio-internal.la @LIBVISIO_WIN32_RESOURCE@
 libvisio_@VSD_MAJOR_VERSION@_@VSD_MINOR_VERSION@_la_LDFLAGS = $(version_info) -export-dynamic -no-undefined
 libvisio_@VSD_MAJOR_VERSION@_@VSD_MINOR_VERSION@_la_SOURCES = \
-	libvisio_utils.cpp \
-	VisioDocument.cpp \
-	VSD5Parser.cpp \
-	VSD6Parser.cpp \
-	VSDInternalStream.cpp \
-	VSDCharacterList.cpp \
-	VSDContentCollector.cpp \
-	VSDFieldList.cpp \
-	VSDGeometryList.cpp \
-	VSDOutputElementList.cpp \
-	VSDPages.cpp \
-	VSDParagraphList.cpp \
-	VSDParser.cpp \
-	VSDMetaData.cpp \
-	VSDShapeList.cpp \
-	VSDStencils.cpp \
-	VSDStyles.cpp \
-	VSDStylesCollector.cpp \
-	VSDXMLHelper.cpp \
-	libvisio_utils.h \
-	VSD5Parser.h \
-	VSD6Parser.h \
-	VSDInternalStream.h \
-	VSDCharacterList.h \
-	VSDCollector.h \
-	VSDContentCollector.h \
-	VSDDocumentStructure.h \
-	VSDFieldList.h \
-	VSDGeometryList.h \
-	VSDOutputElementList.h \
-	VSDPages.h \
-	VSDParagraphList.h \
-	VSDParser.h \
-	VSDMetaData.h \
-	VSDShapeList.h \
-	VSDStencils.h \
-	VSDStyles.h \
-	VSDStylesCollector.h \
-	VSDTypes.h \
-	VSDXMLHelper.h \
-	 \
+	VisioDocument.cpp
+
+libvisio_internal_la_SOURCES = \
 	VDXParser.cpp \
 	VDXParser.h \
+	VSD5Parser.cpp \
+	VSD5Parser.h \
+	VSD6Parser.cpp \
+	VSD6Parser.h \
+	VSDCharacterList.cpp \
+	VSDCharacterList.h \
+	VSDCollector.h \
+	VSDContentCollector.cpp \
+	VSDContentCollector.h \
+	VSDDocumentStructure.h \
+	VSDFieldList.cpp \
+	VSDFieldList.h \
+	VSDGeometryList.cpp \
+	VSDGeometryList.h \
+	VSDInternalStream.cpp \
+	VSDInternalStream.h \
+	VSDLayerList.cpp \
+	VSDLayerList.h \
+	VSDMetaData.cpp \
+	VSDMetaData.h \
+	VSDOutputElementList.cpp \
+	VSDOutputElementList.h \
+	VSDPages.cpp \
+	VSDPages.h \
+	VSDParagraphList.cpp \
+	VSDParagraphList.h \
+	VSDParser.cpp \
+	VSDParser.h \
+	VSDShapeList.cpp \
+	VSDShapeList.h \
+	VSDStencils.cpp \
+	VSDStencils.h \
+	VSDStyles.cpp \
+	VSDStyles.h \
+	VSDStylesCollector.cpp \
+	VSDStylesCollector.h \
+	VSDTypes.h \
+	VSDXMLHelper.cpp \
+	VSDXMLHelper.h \
 	VSDXMLParserBase.cpp \
 	VSDXMLParserBase.h \
 	VSDXMLTokenMap.cpp \
 	VSDXMLTokenMap.h \
+	VSDXMetaData.cpp \
+	VSDXMetaData.h \
 	VSDXParser.cpp \
 	VSDXParser.h \
 	VSDXTheme.cpp \
 	VSDXTheme.h \
-	VSDXMetaData.cpp \
-	VSDXMetaData.h \
-	$(generated_files)
-	
+	libvisio_utils.cpp \
+	libvisio_utils.h \
+	libvisio_xml.cpp \
+	libvisio_xml.h
 
-VDXParser.lo : $(generated_files)
-VSDXMLParserBase.lo : $(generated_files)
-VSDXMLTokenMap.lo : $(generated_files)
-VSDXParser.lo : $(generated_files)
-VSDXTheme.lo : $(generated_files)
-VSDXMetaData.lo : $(generated_files)
+tokens.h : tokens.gperf
 
-$(top_builddir)/src/lib/tokens.h : $(top_builddir)/src/lib/tokens.gperf
+tokenhash.h : tokens.gperf
+	$(GPERF) --compare-strncmp -C -m 20 tokens.gperf \
+		| $(SED) -e 's/(char\*)0/(char\*)0, 0/g' -e 's/register //g' > tokenhash.h
 
-$(top_builddir)/src/lib/tokenhash.h : $(top_builddir)/src/lib/tokens.gperf
-	$(GPERF) --compare-strncmp -C -m 20 $(top_builddir)/src/lib/tokens.gperf \
-		| $(SED) -e 's/(char\*)0/(char\*)0, 0/g' > $(top_builddir)/src/lib/tokenhash.h
-
-$(top_builddir)/src/lib/tokens.gperf : $(top_srcdir)/src/lib/tokens.txt gentoken.pl
-	perl $(top_srcdir)/src/lib/gentoken.pl $(top_srcdir)/src/lib/tokens.txt \
-		$(top_builddir)/src/lib/tokens.h $(top_builddir)/src/lib/tokens.gperf
+tokens.gperf : $(top_srcdir)/src/lib/tokens.txt $(top_srcdir)/src/lib/gentoken.pl
+	$(PERL) $(top_srcdir)/src/lib/gentoken.pl $(top_srcdir)/src/lib/tokens.txt \
+		tokens.h tokens.gperf
 
 if OS_WIN32
 
@@ -107,14 +101,13 @@ if OS_WIN32
 
 endif
 
-distclean-local :
-	rm -f $(generated_files) $(top_builddir)/src/lib/*.gperf
+MOSTLYCLEANFILES = \
+	$(BUILT_SOURCES) \
+	tokens.gperf
 
 EXTRA_DIST = \
+	$(BUILT_SOURCES) \
 	tokens.txt \
-    gentoken.pl \
+	gentoken.pl \
+	libvisio.rc \
 	libvisio.rc.in
-
-# These may be in the builddir too
-BUILD_EXTRA_DIST = \
-	libvisio.rc
